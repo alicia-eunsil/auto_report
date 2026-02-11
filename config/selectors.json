@@ -1,0 +1,8 @@
+{
+  "observer_login_button": "text=관계자",
+  "login_user_input": "input[name='id']",
+  "login_password_input": "input[name='password']",
+  "login_submit_button": "button[type='submit']",
+  "login_success_anchor": "text=변경사항",
+  "employment_tab_button": "text=고용보험"
+}
