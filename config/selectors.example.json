@@ -1,0 +1,31 @@
+{
+  "observer_login_button": "text=관계자",
+  "login_user_input": "input[name='id']",
+  "login_password_input": "input[name='password']",
+  "login_submit_button": "button[type='submit']",
+  "login_success_anchor": "text=변경사항",
+  "employment_tab_button": "text=고용보험",
+  "snapshot_month_text": ".month-title",
+
+  "region_level_buttons": {
+    "national": "button:has-text('전국')",
+    "province": "button:has-text('시도')",
+    "gyeonggi_city": "button:has-text('경기도 시군')"
+  },
+  "region_dropdown_button": ".region-select-trigger",
+  "region_option_items": ".region-select-option",
+  "region_option_by_text": ".region-select-option:has-text('{name}')",
+
+  "indicator_row": "table tbody tr",
+  "indicator_name": "td:nth-child(1)",
+  "current_value": "td:nth-child(2)",
+  "current_signal": "td:nth-child(3)",
+  "prev_2m_value": "td:nth-child(4)",
+  "prev_2m_signal": "td:nth-child(5)",
+
+  "region_names": {
+    "national": ["전국"],
+    "province": [],
+    "gyeonggi_city": []
+  }
+}
