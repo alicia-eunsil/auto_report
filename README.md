@@ -63,6 +63,20 @@ COLLECTOR_SCRIPT=scripts/collect_playwright.py FORCE_MONTH_END=1 bash scripts/ru
 ```
 
 
+## GitHub 업로드 원클릭 (문서 말고 바로 실행)
+
+아래 한 줄로 **add/commit/push**를 한 번에 실행할 수 있습니다.
+
+```bash
+REMOTE_URL=https://github.com/<user>/<repo>.git COMMIT_MSG="chore: sync" bash scripts/sync_to_github.sh
+```
+
+이미 `origin`이 연결된 상태면 `REMOTE_URL` 없이도 됩니다.
+
+```bash
+COMMIT_MSG="chore: sync" bash scripts/sync_to_github.sh
+```
+
 ## GitHub에 올려서 실제 실행하기
 
 "실제로 GitHub/Streamlit에서 돌려보는" 절차는 아래 문서로 바로 따라가면 됩니다.
