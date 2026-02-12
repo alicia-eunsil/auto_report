@@ -392,12 +392,55 @@ def indicator_names(selectors: dict[str, Any]) -> list[str]:
     return DEFAULT_INDICATOR_NAMES
 
 
+def indicator_variants(indicator: str) -> list[str]:
+    base = indicator.strip()
+    variants = [base]
+
+    if base.endswith("수") and len(base) > 1:
+        variants.append(base[:-1])
+    if " " in base:
+        variants.append(base.replace(" ", ""))
+
+    if base == "사업장 성립":
+        variants.extend(["사업장성립", "성립"])
+    if base == "사업장 소멸":
+        variants.extend(["사업장소멸", "소멸"])
+
+    out: list[str] = []
+    for v in variants:
+        if v and v not in out:
+            out.append(v)
+    return out
+
+
 async def click_indicator(page: Page, selectors: dict[str, Any], indicator: str) -> None:
     button_tpl = selectors.get("indicator_button_by_text")
     if not button_tpl:
         raise ConfigError("Missing selector: indicator_button_by_text")
-    sel = button_tpl.replace("{name}", indicator)
-    await click_resilient(page.locator(sel).first, timeout=15000)
+
+    variants = indicator_variants(indicator)
+    candidates: list[str] = []
+
+    for name in variants:
+        candidates.append(button_tpl.replace("{name}", name))
+        candidates.extend(
+            [
+                f"button:has-text('{name}')",
+                f"[role='button']:has-text('{name}')",
+                f"a:has-text('{name}')",
+                f"li:has-text('{name}')",
+                f"div:has-text('{name}')",
+            ]
+        )
+
+    # Keep order while dropping duplicates.
+    deduped: list[str] = []
+    for c in candidates:
+        if c not in deduped:
+            deduped.append(c)
+
+    used = await click_first_available(page, deduped, timeout=15000, label=f"indicator:{indicator}")
+    print(f"INFO: indicator clicked {indicator} via selector: {used}")
     await page.wait_for_timeout(500)
 
 
