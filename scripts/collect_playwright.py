@@ -141,6 +141,24 @@ async def resolve_login_scope(page: Page, selectors: dict[str, Any]) -> Page | F
     return page.frame_locator(frame_selector).first
 
 
+async def click_resilient(locator: Locator, timeout: int = 15000) -> None:
+    try:
+        await locator.click(timeout=timeout)
+        return
+    except Exception as first_error:
+        # Fallback for elements rendered outside viewport in headless CI.
+        try:
+            await locator.click(timeout=5000, force=True)
+            return
+        except Exception:
+            pass
+        try:
+            await locator.evaluate("el => el.click()")
+            return
+        except Exception:
+            raise first_error
+
+
 async def login(page: Page, selectors: dict[str, Any], user: str, password: str) -> None:
     async def accept_dialog(dialog: Dialog) -> None:
         await dialog.accept()
@@ -148,7 +166,7 @@ async def login(page: Page, selectors: dict[str, Any], user: str, password: str)
     await page.goto(BASE_URL, wait_until="domcontentloaded")
     page.on("dialog", accept_dialog)
 
-    await page.locator(selectors["observer_login_button"]).first.click(timeout=15000)
+    await click_resilient(page.locator(selectors["observer_login_button"]).first, timeout=15000)
 
     login_scope = await resolve_login_scope(page, selectors)
 
