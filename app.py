@@ -290,14 +290,25 @@ def indicator_count_view(src: pd.DataFrame, levels: list[str]) -> pd.DataFrame:
     return out[["지표", "정상", "관심", "주의", "대상수"]].sort_values("지표").reset_index(drop=True)
 
 
+def indicator_count_view_gyeonggi(src: pd.DataFrame) -> pd.DataFrame:
+    gg = pd.concat(
+        [
+            src[(src["region_level"] == "province") & (src["region_name"] == "경기도")],
+            src[src["region_level"] == "gyeonggi_city"],
+        ],
+        ignore_index=True,
+    )
+    return indicator_count_view(gg, ["province", "gyeonggi_city"])
+
+
 st.markdown("### 지표별 현황 (전국 / 경기도)")
 v1, v2 = st.columns(2)
 with v1:
     st.markdown("#### 전국(전국 + 17개 시도)")
     st.dataframe(indicator_count_view(current, ["national", "province"]), use_container_width=True)
 with v2:
-    st.markdown("#### 경기도(31개 시군)")
-    st.dataframe(indicator_count_view(current, ["gyeonggi_city"]), use_container_width=True)
+    st.markdown("#### 경기도(경기도 + 31개 시군)")
+    st.dataframe(indicator_count_view_gyeonggi(current), use_container_width=True)
 
 st.divider()
 
