@@ -251,8 +251,14 @@ async def click_exact_text_any_frame(page: Page, text: str) -> str | None:
         if (!isVisible(el)) continue;
         if (norm(el.textContent) !== target) continue;
 
+        const rowLike =
+          el.closest(".risk-metric-list-row") ||
+          el.closest("[class*='risk-metric-list-row']") ||
+          el.closest(".risk-metric-item");
+
         const clickable =
           el.closest("button,a,[role='button'],li,[tabindex]") ||
+          rowLike ||
           (el.hasAttribute("onclick") ? el : null) ||
           el;
 
@@ -526,9 +532,10 @@ async def extract_region_cards(
         selectors,
         "region_cards_selector",
         [
+            "div.panel-detail-cont-row.main:has(.panel-detail-cont-row-header-tit)",
             "div.panel-detail-cont-row.main",
             ".panel-detail-cont-row.main",
-            "div.panel-detail-cont > div.panel-detail-cont-row",
+            "div.panel-detail-cont > div.panel-detail-cont-row:has(.panel-detail-cont-row-header-tit)",
         ],
     )
     cards = None
@@ -552,12 +559,24 @@ async def extract_region_cards(
 
     for i in range(await cards.count()):
         card = cards.nth(i)
-        region_name = (await card.locator(selectors["card_region_name"]).first.inner_text()).strip()
+        name_loc = card.locator(selectors["card_region_name"]).first
+        if await name_loc.count() == 0:
+            continue
+        try:
+            region_name = (await name_loc.inner_text(timeout=2000)).strip()
+        except Exception:
+            continue
         if not region_name:
             continue
         region_token = region_name.replace(" ", "").replace("\xa0", "")
 
-        current_value_raw = (await card.locator(selectors["card_current_value"]).first.inner_text()).strip()
+        value_loc = card.locator(selectors["card_current_value"]).first
+        current_value_raw = ""
+        if await value_loc.count() > 0:
+            try:
+                current_value_raw = (await value_loc.inner_text(timeout=2000)).strip()
+            except Exception:
+                current_value_raw = ""
 
         signals = card.locator(selectors["card_signal_items"])
         if await signals.count() < 3:
@@ -566,9 +585,15 @@ async def extract_region_cards(
         s0 = signals.nth(0)
         s1 = signals.nth(1)
         s2 = signals.nth(2)
-        current_signal = normalize_signal((await s0.inner_text()).strip(), await s0.get_attribute("class") or "")
-        prev_1m_signal = normalize_signal((await s1.inner_text()).strip(), await s1.get_attribute("class") or "")
-        prev_2m_signal = normalize_signal((await s2.inner_text()).strip(), await s2.get_attribute("class") or "")
+        try:
+            s0_text = (await s0.inner_text(timeout=2000)).strip()
+            s1_text = (await s1.inner_text(timeout=2000)).strip()
+            s2_text = (await s2.inner_text(timeout=2000)).strip()
+        except Exception:
+            continue
+        current_signal = normalize_signal(s0_text, await s0.get_attribute("class") or "")
+        prev_1m_signal = normalize_signal(s1_text, await s1.get_attribute("class") or "")
+        prev_2m_signal = normalize_signal(s2_text, await s2.get_attribute("class") or "")
 
         if not current_signal or not prev_1m_signal or not prev_2m_signal:
             continue
@@ -620,7 +645,11 @@ async def wait_for_card_refresh(
 ) -> None:
     # Wait for cards to render and, when possible, change from the previous indicator snapshot.
     for _ in range(25):
-        rows = await extract_region_cards(page, selectors, ExtractionContext("", ""), source_level, indicator)
+        try:
+            rows = await extract_region_cards(page, selectors, ExtractionContext("", ""), source_level, indicator)
+        except Exception:
+            await page.wait_for_timeout(500)
+            continue
         sig = region_rows_signature(rows)
         if not sig:
             await page.wait_for_timeout(500)
