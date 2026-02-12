@@ -123,7 +123,7 @@ async def open_region_dropdown_if_present(page: Page, selectors: dict[str, Any])
     if await trigger.count() == 0:
         return False
 
-    await trigger.click(timeout=15000)
+    await click_resilient(trigger, timeout=15000)
     await page.wait_for_timeout(300)
     return True
 
@@ -172,7 +172,7 @@ async def login(page: Page, selectors: dict[str, Any], user: str, password: str)
 
     await login_scope.locator(selectors["login_user_input"]).fill(user, timeout=15000)
     await login_scope.locator(selectors["login_password_input"]).fill(password, timeout=15000)
-    await login_scope.locator(selectors["login_submit_button"]).click(timeout=15000)
+    await click_resilient(login_scope.locator(selectors["login_submit_button"]), timeout=15000)
 
     # Some environments show a custom confirmation modal instead of JS alert.
     popup_confirm_selector = selectors.get("login_popup_confirm_button")
@@ -180,7 +180,7 @@ async def login(page: Page, selectors: dict[str, Any], user: str, password: str)
         popup_confirm_button = page.locator(popup_confirm_selector).first
         try:
             await popup_confirm_button.wait_for(state="visible", timeout=4000)
-            await popup_confirm_button.click(timeout=4000)
+            await click_resilient(popup_confirm_button, timeout=4000)
             await page.wait_for_timeout(300)
         except Exception:
             # Continue when popup is not present in this session.
@@ -222,7 +222,7 @@ async def click_region_level(page: Page, selectors: dict[str, Any], level_key: s
     level_selector = selectors.get("region_level_buttons", {}).get(level_key)
     if not level_selector:
         raise ConfigError(f"Missing selector: region_level_buttons.{level_key}")
-    await page.locator(level_selector).first.click(timeout=15000)
+    await click_resilient(page.locator(level_selector).first, timeout=15000)
     await page.wait_for_timeout(400)
 
 
@@ -237,7 +237,7 @@ async def select_region_name(page: Page, selectors: dict[str, Any], region_name:
         raise RuntimeError("Region dropdown trigger not found. Check region_dropdown_button selector.")
 
     target_selector = option.replace("{name}", region_name)
-    await page.locator(target_selector).first.click(timeout=15000)
+    await click_resilient(page.locator(target_selector).first, timeout=15000)
     await page.wait_for_timeout(600)
 
 
@@ -330,7 +330,7 @@ async def click_indicator(page: Page, selectors: dict[str, Any], indicator: str)
     if not button_tpl:
         raise ConfigError("Missing selector: indicator_button_by_text")
     sel = button_tpl.replace("{name}", indicator)
-    await page.locator(sel).first.click(timeout=15000)
+    await click_resilient(page.locator(sel).first, timeout=15000)
     await page.wait_for_timeout(500)
 
 
@@ -450,10 +450,10 @@ def validate_completeness(rows: list[dict[str, str]]) -> None:
 async def collect_rows(page: Page, selectors: dict[str, Any]) -> list[dict[str, str]]:
     early_warning_menu_sel = selectors.get("early_warning_service_menu_button")
     if early_warning_menu_sel:
-        await page.locator(early_warning_menu_sel).first.click(timeout=15000)
+        await click_resilient(page.locator(early_warning_menu_sel).first, timeout=15000)
         await page.wait_for_timeout(800)
 
-    await page.locator(selectors["employment_tab_button"]).first.click(timeout=15000)
+    await click_resilient(page.locator(selectors["employment_tab_button"]).first, timeout=15000)
     await page.wait_for_timeout(1200)
 
     month_sel = selectors.get("snapshot_month_text")
