@@ -159,6 +159,45 @@ async def click_resilient(locator: Locator, timeout: int = 15000) -> None:
             raise first_error
 
 
+def selector_candidates(selectors: dict[str, Any], key: str, defaults: list[str]) -> list[str]:
+    out: list[str] = []
+    configured = selectors.get(key)
+    if isinstance(configured, str) and configured.strip():
+        out.append(configured.strip())
+    elif isinstance(configured, list):
+        out.extend([str(v).strip() for v in configured if str(v).strip()])
+
+    for sel in defaults:
+        if sel not in out:
+            out.append(sel)
+    return out
+
+
+async def click_first_available(
+    page: Page,
+    candidates: list[str],
+    *,
+    timeout: int = 15000,
+    label: str,
+) -> str:
+    last_error: Exception | None = None
+    for _ in range(2):
+        for sel in candidates:
+            loc = page.locator(sel).first
+            if await loc.count() == 0:
+                continue
+            try:
+                await click_resilient(loc, timeout=timeout)
+                return sel
+            except Exception as exc:
+                last_error = exc
+        await page.wait_for_timeout(700)
+
+    if last_error:
+        raise RuntimeError(f"Failed to click {label}. candidates={candidates}") from last_error
+    raise RuntimeError(f"No element found for {label}. candidates={candidates}")
+
+
 async def login(page: Page, selectors: dict[str, Any], user: str, password: str) -> None:
     async def accept_dialog(dialog: Dialog) -> None:
         await dialog.accept()
@@ -450,10 +489,32 @@ def validate_completeness(rows: list[dict[str, str]]) -> None:
 async def collect_rows(page: Page, selectors: dict[str, Any]) -> list[dict[str, str]]:
     early_warning_menu_sel = selectors.get("early_warning_service_menu_button")
     if early_warning_menu_sel:
-        await click_resilient(page.locator(early_warning_menu_sel).first, timeout=15000)
+        menu_candidates = selector_candidates(
+            selectors,
+            "early_warning_service_menu_button",
+            [
+                "text=조기경보 서비스",
+                "span:has-text('조기경보 서비스')",
+                "a:has-text('조기경보 서비스')",
+                "li:has-text('조기경보 서비스')",
+            ],
+        )
+        await click_first_available(page, menu_candidates, timeout=15000, label="early warning menu")
         await page.wait_for_timeout(800)
 
-    await click_resilient(page.locator(selectors["employment_tab_button"]).first, timeout=15000)
+    employment_candidates = selector_candidates(
+        selectors,
+        "employment_tab_button",
+        [
+            "text=고용보험",
+            "button:has-text('고용보험')",
+            "button[role='tab']:has-text('고용보험')",
+            "a:has-text('고용보험')",
+            "li:has-text('고용보험')",
+            "div:has-text('고용보험')",
+        ],
+    )
+    await click_first_available(page, employment_candidates, timeout=15000, label="employment tab")
     await page.wait_for_timeout(1200)
 
     month_sel = selectors.get("snapshot_month_text")
@@ -532,7 +593,7 @@ async def run() -> None:
 
     async with async_playwright() as p:
         browser = await p.chromium.launch(headless=True)
-        page = await browser.new_page()
+        page = await browser.new_page(viewport={"width": 1920, "height": 1080})
         try:
             await login(page, selectors, user, password)
             rows = await collect_rows(page, selectors)
