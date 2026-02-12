@@ -260,171 +260,166 @@ summary_lines = [
     f"- 우선 점검 대상 1순위는 **{top_target_text}** 입니다.",
 ]
 
-tabs = st.tabs(
+st.markdown("## 1. 월간 한눈에")
+c1, c2, c3, c4 = st.columns(4)
+c1.metric("주의 지역 수", kpi_caution_regions)
+c2.metric("전월 대비 악화 지역", kpi_worsened_regions)
+c3.metric("3개월 연속 비정상", kpi_persistent_regions)
+c4.metric("신규 주의 지역", kpi_new_caution)
+
+st.markdown("### 핵심 요약")
+st.markdown("\n".join(summary_lines))
+
+indicator_summary = (
+    current.groupby(["indicator", "current_signal"]).size().unstack(fill_value=0).reset_index().rename_axis(None, axis=1)
+)
+for col in ["정상", "관심", "주의"]:
+    if col not in indicator_summary.columns:
+        indicator_summary[col] = 0
+indicator_summary = indicator_summary[["indicator", "정상", "관심", "주의"]]
+st.markdown("### 지표별 현황")
+st.dataframe(indicator_summary, use_container_width=True)
+
+st.divider()
+
+st.markdown("## 2. 우선관리 지역")
+show_cols = [
+    "권역",
+    "region_name",
+    "우선순위점수",
+    "현재위험점수",
+    "변화점수",
+    "연속비정상지표수",
+    "장기취약정규점수",
+    "추세",
+]
+p1, p2 = st.columns(2)
+with p1:
+    st.markdown("### 시도 Top 10")
+    st.dataframe(
+        priority[priority["region_level"] == "province"][show_cols].head(10).rename(columns={"region_name": "지역명"}),
+        use_container_width=True,
+    )
+with p2:
+    st.markdown("### 경기 시군 Top 15")
+    st.dataframe(
+        priority[priority["region_level"] == "gyeonggi_city"][show_cols].head(15).rename(columns={"region_name": "지역명"}),
+        use_container_width=True,
+    )
+
+st.divider()
+
+st.markdown("## 3. 장기취약 지역 (최근 12개월)")
+long_view = priority[
     [
-        "월간 한눈에",
-        "우선관리 지역",
-        "장기취약 지역",
-        "확산/개선 흐름",
-        "지역 상세",
-        "발간용 다운로드",
+        "권역",
+        "region_name",
+        "장기취약점수",
+        "장기취약정규점수",
+        "추세변화",
+        "추세",
+        "현재위험점수",
+    ]
+].rename(columns={"region_name": "지역명"}).sort_values("장기취약점수", ascending=False)
+st.dataframe(long_view.head(30), use_container_width=True)
+
+st.divider()
+
+st.markdown("## 4. 확산/개선 흐름")
+st.markdown("### 지표별 악화/개선")
+if indicator_flow.empty:
+    st.info("전월 데이터가 없어 변화 분석이 불가능합니다.")
+else:
+    st.dataframe(indicator_flow, use_container_width=True)
+
+st.markdown("### 현재 신호 분포")
+level_opt = st.selectbox("권역 선택", ["전국", "시도", "경기 시군"], index=1)
+level_key = {"전국": "national", "시도": "province", "경기 시군": "gyeonggi_city"}[level_opt]
+heat = (
+    current[current["region_level"] == level_key]
+    .groupby(["indicator", "current_signal"])
+    .size()
+    .unstack(fill_value=0)
+    .reset_index()
+)
+st.dataframe(heat, use_container_width=True)
+
+st.divider()
+
+st.markdown("## 5. 지역 상세")
+detail_levels = [k for k in ["province", "gyeonggi_city", "national"] if k in current["region_level"].unique().tolist()]
+if not detail_levels:
+    st.info("지역 상세를 표시할 데이터가 없습니다.")
+else:
+    d1, d2 = st.columns(2)
+    with d1:
+        level_sel = st.selectbox("상세 권역", detail_levels, format_func=lambda x: SCOPE_MAP.get(x, x))
+    with d2:
+        region_options = sorted(current[current["region_level"] == level_sel]["region_name"].dropna().unique().tolist())
+        region_sel = st.selectbox("상세 지역", region_options)
+
+    region_hist = df[(df["region_level"] == level_sel) & (df["region_name"] == region_sel)].copy()
+    month_score = (
+        region_hist.groupby("snapshot_month", as_index=False)["current_signal_score"]
+        .sum()
+        .sort_values("snapshot_month")
+        .set_index("snapshot_month")
+    )
+    st.markdown("### 월별 위험점수")
+    st.line_chart(month_score)
+
+    signal_timeline = (
+        region_hist.pivot_table(
+            index="snapshot_month",
+            columns="indicator",
+            values="current_signal",
+            aggfunc="first",
+        )
+        .sort_index()
+        .reset_index()
+    )
+    st.markdown("### 지표 신호 타임라인")
+    st.dataframe(signal_timeline, use_container_width=True)
+
+st.divider()
+
+st.markdown("## 6. 발간용 다운로드")
+export_summary = pd.DataFrame(
+    [
+        {"항목": "기준월", "값": selected_month},
+        {"항목": "주의 지역 수", "값": kpi_caution_regions},
+        {"항목": "전월 대비 악화 지역", "값": kpi_worsened_regions},
+        {"항목": "3개월 연속 비정상", "값": kpi_persistent_regions},
+        {"항목": "신규 주의 지역", "값": kpi_new_caution},
     ]
 )
-
-with tabs[0]:
-    c1, c2, c3, c4 = st.columns(4)
-    c1.metric("주의 지역 수", kpi_caution_regions)
-    c2.metric("전월 대비 악화 지역", kpi_worsened_regions)
-    c3.metric("3개월 연속 비정상", kpi_persistent_regions)
-    c4.metric("신규 주의 지역", kpi_new_caution)
-
-    st.markdown("### 핵심 요약")
-    st.markdown("\n".join(summary_lines))
-
-    indicator_summary = (
-        current.groupby(["indicator", "current_signal"]).size().unstack(fill_value=0).reset_index().rename_axis(None, axis=1)
-    )
-    for col in ["정상", "관심", "주의"]:
-        if col not in indicator_summary.columns:
-            indicator_summary[col] = 0
-    indicator_summary = indicator_summary[["indicator", "정상", "관심", "주의"]]
-    st.markdown("### 지표별 현황")
-    st.dataframe(indicator_summary, use_container_width=True)
-
-with tabs[1]:
-    st.markdown("### 우선관리 리스트")
-    show_cols = [
+priority_export = priority[
+    [
         "권역",
         "region_name",
         "우선순위점수",
         "현재위험점수",
         "변화점수",
         "연속비정상지표수",
+        "장기취약점수",
         "장기취약정규점수",
         "추세",
     ]
-    p1, p2 = st.columns(2)
-    with p1:
-        st.markdown("#### 시도 Top 10")
-        st.dataframe(
-            priority[priority["region_level"] == "province"][show_cols].head(10).rename(columns={"region_name": "지역명"}),
-            use_container_width=True,
-        )
-    with p2:
-        st.markdown("#### 경기 시군 Top 15")
-        st.dataframe(
-            priority[priority["region_level"] == "gyeonggi_city"][show_cols].head(15).rename(columns={"region_name": "지역명"}),
-            use_container_width=True,
-        )
+].rename(columns={"region_name": "지역명"})
+long_export = priority[
+    ["권역", "region_name", "장기취약점수", "장기취약정규점수", "추세변화", "추세", "현재위험점수"]
+].rename(columns={"region_name": "지역명"}).sort_values("장기취약점수", ascending=False)
 
-with tabs[2]:
-    st.markdown("### 장기취약 지역 (최근 12개월)")
-    long_view = priority[
-        [
-            "권역",
-            "region_name",
-            "장기취약점수",
-            "장기취약정규점수",
-            "추세변화",
-            "추세",
-            "현재위험점수",
-        ]
-    ].rename(columns={"region_name": "지역명"}).sort_values("장기취약점수", ascending=False)
-    st.dataframe(long_view.head(30), use_container_width=True)
-
-with tabs[3]:
-    st.markdown("### 지표별 악화/개선")
-    if indicator_flow.empty:
-        st.info("전월 데이터가 없어 변화 분석이 불가능합니다.")
-    else:
-        st.dataframe(indicator_flow, use_container_width=True)
-
-    st.markdown("### 현재 신호 분포")
-    level_opt = st.selectbox("권역 선택", ["전국", "시도", "경기 시군"], index=1)
-    level_key = {"전국": "national", "시도": "province", "경기 시군": "gyeonggi_city"}[level_opt]
-    heat = (
-        current[current["region_level"] == level_key]
-        .groupby(["indicator", "current_signal"])
-        .size()
-        .unstack(fill_value=0)
-        .reset_index()
-    )
-    st.dataframe(heat, use_container_width=True)
-
-with tabs[4]:
-    st.markdown("### 지역별 상세 추이")
-    detail_levels = [k for k in ["province", "gyeonggi_city", "national"] if k in current["region_level"].unique().tolist()]
-    if not detail_levels:
-        st.info("지역 상세를 표시할 데이터가 없습니다.")
-    else:
-        d1, d2 = st.columns(2)
-        with d1:
-            level_sel = st.selectbox("권역", detail_levels, format_func=lambda x: SCOPE_MAP.get(x, x))
-        with d2:
-            region_options = sorted(current[current["region_level"] == level_sel]["region_name"].dropna().unique().tolist())
-            region_sel = st.selectbox("지역", region_options)
-
-        region_hist = df[(df["region_level"] == level_sel) & (df["region_name"] == region_sel)].copy()
-        month_score = (
-            region_hist.groupby("snapshot_month", as_index=False)["current_signal_score"]
-            .sum()
-            .sort_values("snapshot_month")
-            .set_index("snapshot_month")
-        )
-        st.markdown("#### 월별 위험점수")
-        st.line_chart(month_score)
-
-        signal_timeline = (
-            region_hist.pivot_table(
-                index="snapshot_month",
-                columns="indicator",
-                values="current_signal",
-                aggfunc="first",
-            )
-            .sort_index()
-            .reset_index()
-        )
-        st.markdown("#### 지표 신호 타임라인")
-        st.dataframe(signal_timeline, use_container_width=True)
-
-with tabs[5]:
-    st.markdown("### 발간용 파일")
-    export_summary = pd.DataFrame(
-        [
-            {"항목": "기준월", "값": selected_month},
-            {"항목": "주의 지역 수", "값": kpi_caution_regions},
-            {"항목": "전월 대비 악화 지역", "값": kpi_worsened_regions},
-            {"항목": "3개월 연속 비정상", "값": kpi_persistent_regions},
-            {"항목": "신규 주의 지역", "값": kpi_new_caution},
-        ]
-    )
-    priority_export = priority[
-        [
-            "권역",
-            "region_name",
-            "우선순위점수",
-            "현재위험점수",
-            "변화점수",
-            "연속비정상지표수",
-            "장기취약점수",
-            "장기취약정규점수",
-            "추세",
-        ]
-    ].rename(columns={"region_name": "지역명"})
-    long_export = priority[
-        ["권역", "region_name", "장기취약점수", "장기취약정규점수", "추세변화", "추세", "현재위험점수"]
-    ].rename(columns={"region_name": "지역명"}).sort_values("장기취약점수", ascending=False)
-
-    excel_bytes = build_export_excel(export_summary, priority_export, long_export, current)
-    st.download_button(
-        "월간 발간용 Excel 다운로드",
-        data=excel_bytes,
-        file_name=f"monthly_brief_{selected_month}.xlsx",
-        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-    )
-    st.download_button(
-        "우선관리 지역 CSV 다운로드",
-        data=priority_export.to_csv(index=False).encode("utf-8-sig"),
-        file_name=f"priority_regions_{selected_month}.csv",
-        mime="text/csv",
-    )
+excel_bytes = build_export_excel(export_summary, priority_export, long_export, current)
+st.download_button(
+    "월간 발간용 Excel 다운로드",
+    data=excel_bytes,
+    file_name=f"monthly_brief_{selected_month}.xlsx",
+    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+)
+st.download_button(
+    "우선관리 지역 CSV 다운로드",
+    data=priority_export.to_csv(index=False).encode("utf-8-sig"),
+    file_name=f"priority_regions_{selected_month}.csv",
+    mime="text/csv",
+)
