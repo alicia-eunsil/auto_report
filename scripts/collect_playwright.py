@@ -424,7 +424,34 @@ async def extract_region_cards(
         )
 
     rows: list[dict[str, str]] = []
-    cards = page.locator(selectors["region_cards_selector"])
+    card_candidates = selector_candidates(
+        selectors,
+        "region_cards_selector",
+        [
+            "div.panel-detail-cont-row.main",
+            ".panel-detail-cont-row.main",
+            "div.panel-detail-cont > div.panel-detail-cont-row",
+        ],
+    )
+    cards = None
+    used_card_selector = ""
+    for _ in range(20):
+        for sel in card_candidates:
+            loc = page.locator(sel)
+            if await loc.count() > 0:
+                cards = loc
+                used_card_selector = sel
+                break
+        if cards is not None:
+            break
+        await page.wait_for_timeout(600)
+
+    if cards is None:
+        return []
+
+    if used_card_selector != selectors.get("region_cards_selector", ""):
+        print(f"INFO: card selector fallback used for {source_level}/{indicator}: {used_card_selector}")
+
     for i in range(await cards.count()):
         card = cards.nth(i)
         region_name = (await card.locator(selectors["card_region_name"]).first.inner_text()).strip()
