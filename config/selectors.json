@@ -1,0 +1,47 @@
+{
+  "observer_login_button": "text=관계자",
+  "login_iframe_selector": "",
+  "login_user_input": "input#loginId",
+  "login_password_input": "input#loginPwd",
+  "login_submit_button": "button#btnLogin",
+  "login_popup_confirm_button": "button:has-text('확인')",
+  "login_success_anchor": "#staff_logout",
+  "early_warning_service_menu_button": "text=조기경보 서비스",
+  "employment_tab_button": "button:has-text('고용보험')",
+  "snapshot_month_text": "button:has-text('년')",
+  "region_level_buttons": {
+    "national": "button[role='tab']:has-text('전국')",
+    "province": "button[role='tab']:has-text('전국')",
+    "gyeonggi_city": "button[role='tab']:has-text('경기도')"
+  },
+  "indicator_names": [
+    "피보험자수",
+    "취득자수",
+    "상실자수",
+    "사업장수",
+    "사업장 성립",
+    "사업장 소멸"
+  ],
+  "indicator_button_by_text": "button:has-text('{name}')",
+  "region_cards_selector": "div.panel-detail-cont.ggd > div.panel-detail-cont-row.main",
+  "card_region_name": ".panel-detail-cont-row-header-tit",
+  "card_current_value": ".panel-detail-cont-row-header-risk",
+  "card_signal_items": ".panel-detail-cont-row-risk-wrapper > div",
+  "region_dropdown_button": ".region-select-trigger",
+  "region_option_items": ".region-select-option",
+  "region_option_by_text": ".region-select-option:has-text('{name}')",
+  "indicator_row": "table tbody tr",
+  "indicator_name": "td:nth-child(1)",
+  "current_value": "td:nth-child(2)",
+  "current_signal": "td:nth-child(3)",
+  "prev_1m_signal": "td:nth-child(4)",
+  "prev_2m_value": "td:nth-child(5)",
+  "prev_2m_signal": "td:nth-child(6)",
+  "region_names": {
+    "national": [
+      "전국"
+    ],
+    "province": [],
+    "gyeonggi_city": []
+  }
+}
