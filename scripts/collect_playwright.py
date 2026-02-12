@@ -516,6 +516,10 @@ def validate_completeness(rows: list[dict[str, str]]) -> None:
 
 async def collect_rows(page: Page, selectors: dict[str, Any]) -> list[dict[str, str]]:
     await page.goto(RISK_URL, wait_until="domcontentloaded")
+    try:
+        await page.wait_for_load_state("networkidle", timeout=8000)
+    except Exception:
+        pass
     await page.wait_for_timeout(1200)
 
     employment_candidates = selector_candidates(
@@ -531,36 +535,20 @@ async def collect_rows(page: Page, selectors: dict[str, Any]) -> list[dict[str, 
         ],
     )
 
-    early_warning_menu_sel = selectors.get("early_warning_service_menu_button")
-    if early_warning_menu_sel:
-        menu_candidates = selector_candidates(
-            selectors,
-            "early_warning_service_menu_button",
-            [
-                "text=조기경보 서비스",
-                "span:has-text('조기경보 서비스')",
-                "a:has-text('조기경보 서비스')",
-                "li:has-text('조기경보 서비스')",
-            ],
-        )
-        page_count_before = len(page.context.pages)
-        await click_first_available(page, menu_candidates, timeout=15000, label="early warning menu")
-        await page.wait_for_timeout(800)
-        page = await switch_to_new_page_if_opened(page, page_count_before)
-
-    if early_warning_menu_sel and not await has_any_selector(page, employment_candidates):
-        retry_menu_candidates = [
-            "a:has-text('조기경보 서비스')",
-            "li:has-text('조기경보 서비스')",
-            "text=조기경보 서비스",
-            "span:has-text('조기경보 서비스')",
-        ]
-        page_count_before = len(page.context.pages)
-        await click_first_available(page, retry_menu_candidates, timeout=10000, label="early warning menu retry")
+    found_employment = False
+    for _ in range(20):
+        if await has_any_selector(page, employment_candidates):
+            found_employment = True
+            break
         await page.wait_for_timeout(1000)
-        page = await switch_to_new_page_if_opened(page, page_count_before)
 
-    await click_first_available(page, employment_candidates, timeout=15000, label="employment tab")
+    if not found_employment:
+        raise RuntimeError(
+            f"No element found for employment tab after loading risk page. "
+            f"url={page.url} candidates={employment_candidates}"
+        )
+
+    await click_first_available(page, employment_candidates, timeout=20000, label="employment tab")
     await page.wait_for_timeout(1200)
 
     month_sel = selectors.get("snapshot_month_text")
