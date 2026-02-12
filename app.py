@@ -270,15 +270,38 @@ c4.metric("신규 주의 지역", kpi_new_caution)
 st.markdown("### 핵심 요약")
 st.markdown("\n".join(summary_lines))
 
-indicator_summary = (
-    current.groupby(["indicator", "current_signal"]).size().unstack(fill_value=0).reset_index().rename_axis(None, axis=1)
-)
-for col in ["정상", "관심", "주의"]:
-    if col not in indicator_summary.columns:
-        indicator_summary[col] = 0
-indicator_summary = indicator_summary[["indicator", "정상", "관심", "주의"]]
-st.markdown("### 지표별 현황")
-st.dataframe(indicator_summary, use_container_width=True)
+def indicator_status_view(src: pd.DataFrame, level: str, region_name: str | None = None) -> pd.DataFrame:
+    out = src[src["region_level"] == level].copy()
+    if region_name is not None:
+        out = out[out["region_name"] == region_name].copy()
+    if out.empty:
+        return pd.DataFrame(columns=["지표", "현재값", "당월", "전월", "전전월"])
+
+    cols = ["indicator", "current_signal", "prev_1m_signal", "prev_2m_signal"]
+    if "current_value" in out.columns:
+        cols.insert(1, "current_value")
+    out = out[cols].drop_duplicates(subset=["indicator"], keep="first").sort_values("indicator").reset_index(drop=True)
+    rename_map = {
+        "indicator": "지표",
+        "current_value": "현재값",
+        "current_signal": "당월",
+        "prev_1m_signal": "전월",
+        "prev_2m_signal": "전전월",
+    }
+    out = out.rename(columns=rename_map)
+    if "현재값" not in out.columns:
+        out["현재값"] = ""
+    return out[["지표", "현재값", "당월", "전월", "전전월"]]
+
+
+st.markdown("### 지표별 현황 (전국 / 경기도)")
+v1, v2 = st.columns(2)
+with v1:
+    st.markdown("#### 전국")
+    st.dataframe(indicator_status_view(current, "national"), use_container_width=True)
+with v2:
+    st.markdown("#### 경기도")
+    st.dataframe(indicator_status_view(current, "province", "경기도"), use_container_width=True)
 
 st.divider()
 
