@@ -582,18 +582,18 @@ async def extract_region_cards(
         if await signals.count() < 3:
             continue
 
-        s0 = signals.nth(0)
-        s1 = signals.nth(1)
-        s2 = signals.nth(2)
+        s0 = signals.nth(0)  # oldest (t-2)
+        s1 = signals.nth(1)  # previous month (t-1)
+        s2 = signals.nth(2)  # current month (t)
         try:
             s0_text = (await s0.inner_text(timeout=2000)).strip()
             s1_text = (await s1.inner_text(timeout=2000)).strip()
             s2_text = (await s2.inner_text(timeout=2000)).strip()
         except Exception:
             continue
-        current_signal = normalize_signal(s0_text, await s0.get_attribute("class") or "")
+        current_signal = normalize_signal(s2_text, await s2.get_attribute("class") or "")
         prev_1m_signal = normalize_signal(s1_text, await s1.get_attribute("class") or "")
-        prev_2m_signal = normalize_signal(s2_text, await s2.get_attribute("class") or "")
+        prev_2m_signal = normalize_signal(s0_text, await s0.get_attribute("class") or "")
 
         if not current_signal or not prev_1m_signal or not prev_2m_signal:
             continue
