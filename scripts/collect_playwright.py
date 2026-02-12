@@ -543,15 +543,53 @@ async def extract_region_cards(
     return rows
 
 
+def region_rows_signature(rows: list[dict[str, str]], take: int = 8) -> tuple[str, ...]:
+    if not rows:
+        return tuple()
+    key_rows = sorted(
+        rows,
+        key=lambda r: (r["region_name"], r["indicator"]),
+    )[:take]
+    return tuple(
+        f"{r['region_name']}|{r['current_value']}|{r['current_signal']}|{r['prev_1m_signal']}|{r['prev_2m_signal']}"
+        for r in key_rows
+    )
+
+
+async def wait_for_card_refresh(
+    page: Page,
+    selectors: dict[str, Any],
+    previous_signature: tuple[str, ...] | None,
+    source_level: str,
+    indicator: str,
+) -> None:
+    # Wait for cards to render and, when possible, change from the previous indicator snapshot.
+    for _ in range(25):
+        rows = await extract_region_cards(page, selectors, ExtractionContext("", ""), source_level, indicator)
+        sig = region_rows_signature(rows)
+        if not sig:
+            await page.wait_for_timeout(500)
+            continue
+        if previous_signature is None or sig != previous_signature:
+            return
+        await page.wait_for_timeout(500)
+
+    # Do not silently continue: stale data across indicators leads to misleading reports.
+    raise RuntimeError(f"Card data did not refresh after indicator click: {source_level}/{indicator}")
+
+
 async def collect_rows_from_cards(page: Page, selectors: dict[str, Any], ctx: ExtractionContext) -> list[dict[str, str]]:
     all_rows: list[dict[str, str]] = []
     for level_key in ["province", "gyeonggi_city"]:
         await click_region_level(page, selectors, level_key)
+        previous_signature: tuple[str, ...] | None = None
         for indicator in indicator_names(selectors):
             await click_indicator(page, selectors, indicator)
+            await wait_for_card_refresh(page, selectors, previous_signature, level_key, indicator)
             rows = await extract_region_cards(page, selectors, ctx, level_key, indicator)
             if not rows:
                 raise RuntimeError(f"No region cards extracted for {level_key}/{indicator}")
+            previous_signature = region_rows_signature(rows)
             all_rows.extend(rows)
     return all_rows
 
@@ -580,6 +618,31 @@ def validate_completeness(rows: list[dict[str, str]]) -> None:
             missing_msgs.append(
                 f"{level}/{region}: expected {EXPECTED_INDICATOR_COUNT} indicators, got {count}"
             )
+
+    # Guard against stale scrape where indicator switch silently fails.
+    stale_regions: list[str] = []
+    by_region: dict[tuple[str, str], set[tuple[str, str, str, str]]] = {}
+    for r in rows:
+        key = (r["region_level"], r["region_name"])
+        sig = (
+            str(r.get("current_value", "")),
+            str(r.get("current_signal", "")),
+            str(r.get("prev_1m_signal", "")),
+            str(r.get("prev_2m_signal", "")),
+        )
+        by_region.setdefault(key, set()).add(sig)
+
+    for (level, region), signatures in sorted(by_region.items()):
+        if len(signatures) <= 1:
+            stale_regions.append(f"{level}/{region}")
+
+    stale_threshold = max(3, int(len(by_region) * 0.3)) if by_region else 9999
+    if len(stale_regions) >= stale_threshold:
+        sample = ", ".join(stale_regions[:10])
+        missing_msgs.append(
+            "indicator-switch check failed; too many regions have identical values across all indicators: "
+            + sample
+        )
 
     if missing_msgs:
         joined = "\n - ".join(missing_msgs[:20])
