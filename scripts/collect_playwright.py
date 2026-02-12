@@ -666,8 +666,20 @@ async def collect_rows_from_cards(page: Page, selectors: dict[str, Any], ctx: Ex
     all_rows: list[dict[str, str]] = []
     for level_key in ["province", "gyeonggi_city"]:
         await click_region_level(page, selectors, level_key)
+        names = indicator_names(selectors)
         previous_signature: tuple[str, ...] | None = None
-        for indicator in indicator_names(selectors):
+
+        # Seed a known baseline metric for each level to avoid stale first-indicator reads.
+        if len(names) > 1:
+            baseline_indicator = names[-1]
+            await click_indicator(page, selectors, baseline_indicator)
+            await wait_for_card_refresh(page, selectors, None, level_key, baseline_indicator)
+            baseline_rows = await extract_region_cards(page, selectors, ctx, level_key, baseline_indicator)
+            if not baseline_rows:
+                raise RuntimeError(f"No region cards extracted for baseline {level_key}/{baseline_indicator}")
+            previous_signature = region_rows_signature(baseline_rows)
+
+        for indicator in names:
             await click_indicator(page, selectors, indicator)
             await wait_for_card_refresh(page, selectors, previous_signature, level_key, indicator)
             rows = await extract_region_cards(page, selectors, ctx, level_key, indicator)
