@@ -500,6 +500,7 @@ async def extract_region_cards(
         region_name = (await card.locator(selectors["card_region_name"]).first.inner_text()).strip()
         if not region_name:
             continue
+        region_token = region_name.replace(" ", "").replace("\xa0", "")
 
         current_value_raw = (await card.locator(selectors["card_current_value"]).first.inner_text()).strip()
 
@@ -520,6 +521,9 @@ async def extract_region_cards(
         level_key = source_level
         if source_level == "province" and region_name == "전국":
             level_key = "national"
+        if source_level == "gyeonggi_city" and region_token in {"경기도", "경기도전체", "전체"}:
+            print(f"INFO: skip aggregate card in city level: {region_name}")
+            continue
 
         rows.append(
             {
