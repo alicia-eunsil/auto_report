@@ -215,6 +215,11 @@ async def click_first_available(
                 if await loc.count() == 0:
                     continue
                 try:
+                    if not await loc.is_visible():
+                        continue
+                except Exception:
+                    continue
+                try:
                     await click_resilient(loc, timeout=timeout)
                     return sel
                 except Exception as exc:
