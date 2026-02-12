@@ -25,6 +25,7 @@ from typing import Any
 from playwright.async_api import Dialog, FrameLocator, Locator, Page, async_playwright
 
 BASE_URL = "https://stats.gjf.or.kr"
+RISK_URL = f"{BASE_URL}/forecast/risk"
 DATA_DIR = Path("data/snapshots")
 ARTIFACT_DIR = Path("artifacts")
 SELECTOR_CANDIDATES = [
@@ -514,6 +515,9 @@ def validate_completeness(rows: list[dict[str, str]]) -> None:
 
 
 async def collect_rows(page: Page, selectors: dict[str, Any]) -> list[dict[str, str]]:
+    await page.goto(RISK_URL, wait_until="domcontentloaded")
+    await page.wait_for_timeout(1200)
+
     employment_candidates = selector_candidates(
         selectors,
         "employment_tab_button",

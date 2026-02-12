@@ -7,7 +7,7 @@
   "login_popup_confirm_button": "button:has-text('확인')",
   "login_success_anchor": "#staff_logout",
   "early_warning_service_menu_button": "text=조기경보 서비스",
-  "employment_tab_button": "button:has-text('고용보험')",
+  "employment_tab_button": "#root > div > main > div > div.basic-filter-area > div.basic-filter-area-section.basic-mobile-filter-section.risk > div.div-search-filter-detail.div-search-filter-detail-status > div > div.d-flex.risk-metric-flex-wrap > button:nth-child(2)",
   "snapshot_month_text": "button:has-text('년')",
   "region_level_buttons": {
     "national": "button[role='tab']:has-text('전국')",
