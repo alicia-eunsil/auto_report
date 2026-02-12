@@ -159,6 +159,33 @@ async def click_resilient(locator: Locator, timeout: int = 15000) -> None:
             raise first_error
 
 
+def _locator_candidates(page: Page, selector: str) -> list[Locator]:
+    locators = [page.locator(selector).first]
+    for frame in page.frames:
+        locators.append(frame.locator(selector).first)
+    return locators
+
+
+async def has_any_selector(page: Page, candidates: list[str]) -> bool:
+    for sel in candidates:
+        for loc in _locator_candidates(page, sel):
+            if await loc.count() > 0:
+                return True
+    return False
+
+
+async def switch_to_new_page_if_opened(page: Page, previous_page_count: int) -> Page:
+    pages = page.context.pages
+    if len(pages) <= previous_page_count:
+        return page
+    new_page = pages[-1]
+    try:
+        await new_page.wait_for_load_state("domcontentloaded", timeout=5000)
+    except Exception:
+        pass
+    return new_page
+
+
 def selector_candidates(selectors: dict[str, Any], key: str, defaults: list[str]) -> list[str]:
     out: list[str] = []
     configured = selectors.get(key)
@@ -183,14 +210,14 @@ async def click_first_available(
     last_error: Exception | None = None
     for _ in range(2):
         for sel in candidates:
-            loc = page.locator(sel).first
-            if await loc.count() == 0:
-                continue
-            try:
-                await click_resilient(loc, timeout=timeout)
-                return sel
-            except Exception as exc:
-                last_error = exc
+            for loc in _locator_candidates(page, sel):
+                if await loc.count() == 0:
+                    continue
+                try:
+                    await click_resilient(loc, timeout=timeout)
+                    return sel
+                except Exception as exc:
+                    last_error = exc
         await page.wait_for_timeout(700)
 
     if last_error:
@@ -487,21 +514,6 @@ def validate_completeness(rows: list[dict[str, str]]) -> None:
 
 
 async def collect_rows(page: Page, selectors: dict[str, Any]) -> list[dict[str, str]]:
-    early_warning_menu_sel = selectors.get("early_warning_service_menu_button")
-    if early_warning_menu_sel:
-        menu_candidates = selector_candidates(
-            selectors,
-            "early_warning_service_menu_button",
-            [
-                "text=조기경보 서비스",
-                "span:has-text('조기경보 서비스')",
-                "a:has-text('조기경보 서비스')",
-                "li:has-text('조기경보 서비스')",
-            ],
-        )
-        await click_first_available(page, menu_candidates, timeout=15000, label="early warning menu")
-        await page.wait_for_timeout(800)
-
     employment_candidates = selector_candidates(
         selectors,
         "employment_tab_button",
@@ -514,6 +526,36 @@ async def collect_rows(page: Page, selectors: dict[str, Any]) -> list[dict[str, 
             "div:has-text('고용보험')",
         ],
     )
+
+    early_warning_menu_sel = selectors.get("early_warning_service_menu_button")
+    if early_warning_menu_sel:
+        menu_candidates = selector_candidates(
+            selectors,
+            "early_warning_service_menu_button",
+            [
+                "text=조기경보 서비스",
+                "span:has-text('조기경보 서비스')",
+                "a:has-text('조기경보 서비스')",
+                "li:has-text('조기경보 서비스')",
+            ],
+        )
+        page_count_before = len(page.context.pages)
+        await click_first_available(page, menu_candidates, timeout=15000, label="early warning menu")
+        await page.wait_for_timeout(800)
+        page = await switch_to_new_page_if_opened(page, page_count_before)
+
+    if early_warning_menu_sel and not await has_any_selector(page, employment_candidates):
+        retry_menu_candidates = [
+            "a:has-text('조기경보 서비스')",
+            "li:has-text('조기경보 서비스')",
+            "text=조기경보 서비스",
+            "span:has-text('조기경보 서비스')",
+        ]
+        page_count_before = len(page.context.pages)
+        await click_first_available(page, retry_menu_candidates, timeout=10000, label="early warning menu retry")
+        await page.wait_for_timeout(1000)
+        page = await switch_to_new_page_if_opened(page, page_count_before)
+
     await click_first_available(page, employment_candidates, timeout=15000, label="employment tab")
     await page.wait_for_timeout(1200)
 
