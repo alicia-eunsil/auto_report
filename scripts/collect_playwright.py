@@ -231,6 +231,49 @@ async def click_first_available(
     raise RuntimeError(f"No element found for {label}. candidates={candidates}")
 
 
+async def click_exact_text_any_frame(page: Page, text: str) -> str | None:
+    js = """
+    (raw) => {
+      const norm = (v) => (v || "").replace(/\\s+/g, "").trim();
+      const target = norm(raw);
+      if (!target) return null;
+
+      const isVisible = (el) => {
+        if (!el) return false;
+        const style = window.getComputedStyle(el);
+        if (style.visibility === "hidden" || style.display === "none") return false;
+        const r = el.getBoundingClientRect();
+        return r.width > 0 && r.height > 0;
+      };
+
+      const nodes = Array.from(document.querySelectorAll("button,a,[role='button'],li,div,span"));
+      for (const el of nodes) {
+        if (!isVisible(el)) continue;
+        if (norm(el.textContent) !== target) continue;
+
+        const clickable =
+          el.closest("button,a,[role='button'],li,[tabindex]") ||
+          (el.hasAttribute("onclick") ? el : null) ||
+          el;
+
+        clickable.click();
+        const tag = clickable.tagName ? clickable.tagName.toLowerCase() : "unknown";
+        const cls = clickable.className ? String(clickable.className).trim().slice(0, 60) : "";
+        return cls ? `${tag}.${cls}` : tag;
+      }
+      return null;
+    }
+    """
+    for frame in page.frames:
+        try:
+            matched = await frame.evaluate(js, text)
+        except Exception:
+            continue
+        if matched:
+            return str(matched)
+    return None
+
+
 async def login(page: Page, selectors: dict[str, Any], user: str, password: str) -> None:
     async def accept_dialog(dialog: Dialog) -> None:
         await dialog.accept()
@@ -424,17 +467,24 @@ async def click_indicator(page: Page, selectors: dict[str, Any], indicator: str)
         raise ConfigError("Missing selector: indicator_button_by_text")
 
     variants = indicator_variants(indicator)
+
+    for name in variants:
+        exact_used = await click_exact_text_any_frame(page, name)
+        if exact_used:
+            print(f"INFO: indicator clicked {indicator} via exact-text target: {exact_used}")
+            await page.wait_for_timeout(500)
+            return
+
     candidates: list[str] = []
 
     for name in variants:
         candidates.append(button_tpl.replace("{name}", name))
         candidates.extend(
             [
-                f"button:has-text('{name}')",
-                f"[role='button']:has-text('{name}')",
-                f"a:has-text('{name}')",
-                f"li:has-text('{name}')",
-                f"div:has-text('{name}')",
+                f"button:text-is('{name}')",
+                f"[role='button']:text-is('{name}')",
+                f"a:text-is('{name}')",
+                f"li:text-is('{name}')",
             ]
         )
 
