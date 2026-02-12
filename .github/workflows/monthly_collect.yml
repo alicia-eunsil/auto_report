@@ -34,25 +34,40 @@ jobs:
           python -m playwright install --with-deps chromium
 
       - name: Run collector on month-end
+        id: collect
         env:
           GJF_USER: ${{ secrets.GJF_USER }}
           GJF_PASSWORD: ${{ secrets.GJF_PASSWORD }}
           COLLECTOR_SCRIPT: scripts/collect_playwright.py
           FORCE_MONTH_END: ${{ github.event.inputs.force_month_end == 'true' && '1' || '' }}
+          RUN_MARKER_PATH: artifacts/collector_ran.flag
         run: |
           bash scripts/run_if_month_end.sh
+          if [[ -f artifacts/collector_ran.flag ]]; then
+            echo "collector_ran=1" >> "$GITHUB_OUTPUT"
+          else
+            echo "collector_ran=0" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Skip downstream steps when collector did not run
+        if: steps.collect.outputs.collector_ran != '1'
+        run: |
+          echo "Collector skipped (not month-end and not forced)."
 
       - name: Validate latest snapshot
+        if: steps.collect.outputs.collector_ran == '1'
         env:
           REQUIRE_FULL_COVERAGE: "1"
         run: |
           python scripts/validate_snapshot.py
 
       - name: Build cumulative outputs and monthly report
+        if: steps.collect.outputs.collector_ran == '1'
         run: |
           python scripts/postprocess_data.py
 
       - name: Commit snapshot/report outputs if changed
+        if: steps.collect.outputs.collector_ran == '1'
         run: |
           if [[ -n "$(git status --porcelain data/snapshots data/master reports)" ]]; then
             git config user.name "github-actions[bot]"

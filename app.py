@@ -43,6 +43,10 @@ if not required.issubset(df.columns):
     st.stop()
 
 months = sorted(df["snapshot_month"].dropna().unique().tolist())
+if not months:
+    st.warning("표시할 기준월 데이터가 없습니다.")
+    st.stop()
+
 selected_month = st.selectbox("기준월", months, index=len(months) - 1)
 current = df[df["snapshot_month"] == selected_month].copy()
 
@@ -70,7 +74,8 @@ for level, scope_name in scope_map.items():
 
 summary_df = pd.DataFrame(summary_rows).sort_values(["구분", "지표"]) if summary_rows else pd.DataFrame()
 
-prev_month = months[-2] if len(months) >= 2 else None
+selected_idx = months.index(selected_month)
+prev_month = months[selected_idx - 1] if selected_idx > 0 else None
 if prev_month:
     prev = df[df["snapshot_month"] == prev_month]
     prev_rows: list[dict[str, object]] = []
@@ -115,6 +120,7 @@ with c2:
 
 st.markdown("## 3) 지표별 주요지역 (관심/주의 많은 순)")
 
+
 def top_regions(level: str, top_n: int) -> pd.DataFrame:
     level_df = current[current["region_level"] == level].copy()
     if level_df.empty:
@@ -128,6 +134,7 @@ def top_regions(level: str, top_n: int) -> pd.DataFrame:
         picked = g.sort_values(["주의개수", "관심개수", "region_name"], ascending=[False, False, True]).head(top_n)
         rows.append(picked[["indicator", "region_name", "주의개수", "관심개수", "비정상개수"]])
     return pd.concat(rows, ignore_index=True) if rows else pd.DataFrame()
+
 
 col1, col2 = st.columns(2)
 with col1:
