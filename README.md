@@ -62,6 +62,21 @@ bash scripts/demo_run.sh
 COLLECTOR_SCRIPT=scripts/collect_playwright.py FORCE_MONTH_END=1 bash scripts/run_if_month_end.sh
 ```
 
+위 명령의 뜻은 아래와 같습니다.
+
+- `COLLECTOR_SCRIPT=scripts/collect_playwright.py`: 스텁이 아니라 Playwright 실수집기를 실행
+- `FORCE_MONTH_END=1`: 오늘이 월말이 아니어도 강제로 실행
+- `bash scripts/run_if_month_end.sh`: 월말 판단 + 수집 실행 래퍼 스크립트
+
+즉, 로컬에서 "월말 기다리지 않고 지금 바로 수집 테스트"할 때 쓰는 명령입니다.
+
+실수집기가 6개 지표 × 49개 지역을 모두 수집하지 못하면 실패하도록 되어 있습니다.
+(강제 실행했는데 데이터가 비는 경우 대부분 셀렉터 불일치 이슈입니다.)
+
+- `artifacts/collector_failure.png` 화면을 먼저 확인
+- `config/selectors.json`의 지역/지표 관련 셀렉터를 실제 DOM에 맞게 수정
+- 지역 이름은 `region_names.province`, `region_names.gyeonggi_city`에 명시하면 더 안정적
+
 
 ## GitHub에 올려서 실제 실행하기
 
@@ -87,11 +102,19 @@ GitHub Actions가 매일 실행되며, `scripts/run_if_month_end.sh`가 월말 �
 
 `run_if_month_end.sh`는 `COLLECTOR_SCRIPT` 환경변수로 실행 대상을 바꿀 수 있습니다. 기본값은 `scripts/collect_stub.py`이며, 운영에서는 `scripts/collect_playwright.py`를 사용합니다.
 
+수동 실행 시에도 강제 테스트가 가능합니다.
+
+1. GitHub → `Actions` → `Monthly Collect` → `Run workflow`
+2. `force_month_end`를 `true`로 선택
+3. 실행
+
+이렇게 하면 월말이 아니어도 수집 단계를 강제로 실행해 동작 여부를 확인할 수 있습니다.
+
 ## 다음 구현 단계
 
 1. `docs/client_questions.md` 답변 확정
 2. `scripts/collect_stub.py`를 Playwright 실수집기로 교체
 3. 지표 6개 x 지역단위(전국/17개 시도/경기도 31개 시군) 추출
-4. 현재/2개월 전 수치 + 신호등 상태(정상/관심/위기) 정규화
+4. 현재/2개월 전 수치 + 신호등 상태(정상/관심/주의) 정규화
 5. `data/snapshots/YYYY-MM.csv` 저장
 6. Streamlit에서 최신/전월 비교 보고서 시각화

@@ -4,6 +4,11 @@ on:
   schedule:
     - cron: '0 13 * * *' # KST 22:00 daily; script filters month-end only
   workflow_dispatch:
+    inputs:
+      force_month_end:
+        description: 'Run collector even when today is not month-end'
+        required: false
+        default: 'false'
 
 jobs:
   collect:
@@ -33,20 +38,27 @@ jobs:
           GJF_USER: ${{ secrets.GJF_USER }}
           GJF_PASSWORD: ${{ secrets.GJF_PASSWORD }}
           COLLECTOR_SCRIPT: scripts/collect_playwright.py
+          FORCE_MONTH_END: ${{ github.event.inputs.force_month_end == 'true' && '1' || '' }}
         run: |
           bash scripts/run_if_month_end.sh
 
       - name: Validate latest snapshot
+        env:
+          REQUIRE_FULL_COVERAGE: "1"
         run: |
           python scripts/validate_snapshot.py
 
-      - name: Commit snapshot if changed
+      - name: Build cumulative outputs and monthly report
         run: |
-          if [[ -n "$(git status --porcelain data/snapshots)" ]]; then
+          python scripts/postprocess_data.py
+
+      - name: Commit snapshot/report outputs if changed
+        run: |
+          if [[ -n "$(git status --porcelain data/snapshots data/master reports)" ]]; then
             git config user.name "github-actions[bot]"
             git config user.email "github-actions[bot]@users.noreply.github.com"
-            git add data/snapshots
-            git commit -m "chore: add monthly employment snapshot"
+            git add data/snapshots data/master reports
+            git commit -m "chore: add monthly employment outputs"
             git push
           else
             echo "No snapshot changes"
