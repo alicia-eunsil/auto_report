@@ -263,7 +263,7 @@ top_target_text = (
     f"{top_target.iloc[0]['권역']} {top_target.iloc[0]['region_name']}" if not top_target.empty else "해당 없음"
 )
 summary_lines = [
-    f"- 이번 달 주의 지역은 **{kpi_caution_regions}개**이며, 신규 주의 지역은 **{kpi_new_caution}개**입니다.",
+    f"- 이번 달 주의 지역은 **{kpi_caution_regions}개**이며, 신규 주의 지역(전달 주의 0개 → 이번달 주의 1개 이상)은 **{kpi_new_caution}개**입니다.",
     f"- 전월 대비 악화 지역은 **{kpi_worsened_regions}개**, 3개월 연속 비정상 지역은 **{kpi_persistent_regions}개**입니다.",
     f"- 우선 점검 대상 1순위는 **{top_target_text}** 입니다.",
 ]
@@ -281,7 +281,7 @@ st.markdown("\n".join(summary_lines))
 def indicator_count_view(src: pd.DataFrame, levels: list[str]) -> pd.DataFrame:
     out = src[src["region_level"].isin(levels)].copy()
     if out.empty:
-        return pd.DataFrame(columns=["지표", "정상", "관심", "주의", "대상수"])
+        return pd.DataFrame(columns=["지표", "정상", "관심", "주의"])
 
     out = (
         out.groupby(["indicator", "current_signal"])
@@ -293,9 +293,16 @@ def indicator_count_view(src: pd.DataFrame, levels: list[str]) -> pd.DataFrame:
     for col in ["정상", "관심", "주의"]:
         if col not in out.columns:
             out[col] = 0
-    out["대상수"] = out["정상"] + out["관심"] + out["주의"]
     out = out.rename(columns={"indicator": "지표"})
-    return out[["지표", "정상", "관심", "주의", "대상수"]].sort_values("지표").reset_index(drop=True)
+    return out[["지표", "정상", "관심", "주의"]].sort_values("지표").reset_index(drop=True)
+
+
+def center_table(df: pd.DataFrame) -> pd.io.formats.style.Styler:
+    return df.style.set_properties(**{"text-align": "center"}).set_table_styles(
+        [
+            {"selector": "th", "props": [("text-align", "center")]},
+        ]
+    )
 
 
 def indicator_count_view_gyeonggi(src: pd.DataFrame) -> pd.DataFrame:
@@ -313,10 +320,10 @@ st.markdown("### 지표별 현황 (전국 / 경기도)")
 v1, v2 = st.columns(2)
 with v1:
     st.markdown("#### 전국(전국 + 17개 시도)")
-    st.dataframe(indicator_count_view(current, ["national", "province"]), use_container_width=True)
+    st.dataframe(center_table(indicator_count_view(current, ["national", "province"])), use_container_width=True)
 with v2:
     st.markdown("#### 경기도(경기도 + 31개 시군)")
-    st.dataframe(indicator_count_view_gyeonggi(current), use_container_width=True)
+    st.dataframe(center_table(indicator_count_view_gyeonggi(current)), use_container_width=True)
 
 st.divider()
 
