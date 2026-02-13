@@ -373,6 +373,21 @@ render_centered_table(
 st.divider()
 
 st.markdown("## 3. 장기취약 지역 (최근 12개월)")
+st.markdown(
+    """
+    <div class="score-method">
+      <div><strong>점수 산출방법</strong></div>
+      <ul>
+        <li>월위험점수: 당월 지표 신호 점수 합계(정상=0, 관심=1, 주의=2)</li>
+        <li>장기취약점수: 최근 최대 12개월 월위험점수 가중합(최근 3개월 1.5배, 그 외 1.0배)</li>
+        <li>장기취약정규점수: 지역별 장기취약점수를 0~100으로 Min-Max 정규화</li>
+        <li>추세변화: 최근 3개월 평균 월위험점수 - 이전 3개월 평균 월위험점수</li>
+        <li>추세: 추세변화가 1 이상이면 악화, -1 이하이면 개선, 그 외는 유지</li>
+      </ul>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
 long_view = priority[
     [
         "권역",
