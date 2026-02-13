@@ -335,129 +335,135 @@ with v2:
 
 st.divider()
 
-st.markdown("## 2. 우선관리 지역")
-st.markdown(
-    """
-    <div class="score-method">
-      <div><strong>지수별 산출방법</strong></div>
-      <ul>
-        <li>현재위험점수: 주의×2 + 관심×1</li>
-        <li>변화점수: 현재위험점수 - 전월위험점수</li>
-        <li>장기취약정규점수: 최근 12개월 위험점수(최근 3개월 가중) 정규화</li>
-        <li>연속비정상지표수: 3개월 연속(전전월·전월·당월) 관심/주의인 지표 개수</li>
-        <li>우선순위점수: 현재위험점수×0.5 + 변화점수×0.3 + 장기취약정규점수×0.2</li>
-      </ul>
-    </div>
-    """,
-    unsafe_allow_html=True,
-)
-show_cols = [
-    "region_name",
-    "우선순위점수",
-    "현재위험점수",
-    "변화점수",
-    "연속비정상지표수",
-    "장기취약정규점수",
-    "추세",
-]
-st.markdown("### 시도 Top 10")
-render_centered_table(
-    priority[priority["region_level"] == "province"][show_cols].head(10).rename(columns={"region_name": "지역명"})
-)
+status_tab, index_tab = st.tabs(["현황형 리포트", "지수형 리포트"])
 
-st.markdown("### 경기 시군 Top 10")
-render_centered_table(
-    priority[priority["region_level"] == "gyeonggi_city"][show_cols].head(10).rename(columns={"region_name": "지역명"})
-)
+with status_tab:
+    st.markdown("## 2. 확산/개선 흐름")
+    st.markdown("### 지표별 악화/개선")
+    if indicator_flow.empty:
+        st.info("전월 데이터가 없어 변화 분석이 불가능합니다.")
+    else:
+        render_centered_table(indicator_flow)
 
-st.divider()
-
-st.markdown("## 3. 장기취약 지역 (최근 12개월)")
-st.markdown(
-    """
-    <div class="score-method">
-      <div><strong>점수 산출방법</strong></div>
-      <ul>
-        <li>월위험점수: 당월 지표 신호 점수 합계(정상=0, 관심=1, 주의=2)</li>
-        <li>장기취약점수: 최근 최대 12개월 월위험점수 가중합(최근 3개월 1.5배, 그 외 1.0배)</li>
-        <li>장기취약정규점수: 지역별 장기취약점수를 0~100으로 Min-Max 정규화</li>
-        <li>추세변화: 최근 3개월 평균 월위험점수 - 이전 3개월 평균 월위험점수</li>
-        <li>추세: 추세변화가 1 이상이면 악화, -1 이하이면 개선, 그 외는 유지</li>
-      </ul>
-    </div>
-    """,
-    unsafe_allow_html=True,
-)
-long_view = priority[
-    [
-        "권역",
-        "region_name",
-        "장기취약점수",
-        "장기취약정규점수",
-        "추세변화",
-        "추세",
-        "현재위험점수",
-    ]
-].rename(columns={"region_name": "지역명"}).sort_values("장기취약점수", ascending=False)
-render_centered_table(long_view.head(10))
-
-st.divider()
-
-st.markdown("## 4. 확산/개선 흐름")
-st.markdown("### 지표별 악화/개선")
-if indicator_flow.empty:
-    st.info("전월 데이터가 없어 변화 분석이 불가능합니다.")
-else:
-    st.dataframe(indicator_flow, use_container_width=True)
-
-st.markdown("### 현재 신호 분포")
-level_opt = st.selectbox("권역 선택", ["전국", "시도", "경기 시군"], index=1)
-level_key = {"전국": "national", "시도": "province", "경기 시군": "gyeonggi_city"}[level_opt]
-heat = (
-    current[current["region_level"] == level_key]
-    .groupby(["indicator", "current_signal"])
-    .size()
-    .unstack(fill_value=0)
-    .reset_index()
-)
-st.dataframe(heat, use_container_width=True)
-
-st.divider()
-
-st.markdown("## 5. 지역 상세")
-detail_levels = [k for k in ["province", "gyeonggi_city", "national"] if k in current["region_level"].unique().tolist()]
-if not detail_levels:
-    st.info("지역 상세를 표시할 데이터가 없습니다.")
-else:
-    d1, d2 = st.columns(2)
-    with d1:
-        level_sel = st.selectbox("상세 권역", detail_levels, format_func=lambda x: SCOPE_MAP.get(x, x))
-    with d2:
-        region_options = sorted(current[current["region_level"] == level_sel]["region_name"].dropna().unique().tolist())
-        region_sel = st.selectbox("상세 지역", region_options)
-
-    region_hist = df[(df["region_level"] == level_sel) & (df["region_name"] == region_sel)].copy()
-    month_score = (
-        region_hist.groupby("snapshot_month", as_index=False)["current_signal_score"]
-        .sum()
-        .sort_values("snapshot_month")
-        .set_index("snapshot_month")
-    )
-    st.markdown("### 월별 위험점수")
-    st.line_chart(month_score)
-
-    signal_timeline = (
-        region_hist.pivot_table(
-            index="snapshot_month",
-            columns="indicator",
-            values="current_signal",
-            aggfunc="first",
-        )
-        .sort_index()
+    st.markdown("### 현재 신호 분포")
+    level_opt = st.selectbox("권역 선택", ["전국", "시도", "경기 시군"], index=1, key="status_level_opt")
+    level_key = {"전국": "national", "시도": "province", "경기 시군": "gyeonggi_city"}[level_opt]
+    heat = (
+        current[current["region_level"] == level_key]
+        .groupby(["indicator", "current_signal"])
+        .size()
+        .unstack(fill_value=0)
         .reset_index()
     )
-    st.markdown("### 지표 신호 타임라인")
-    st.dataframe(signal_timeline, use_container_width=True)
+    render_centered_table(heat)
+
+    st.divider()
+    st.markdown("## 3. 지역 상세")
+    detail_levels = [k for k in ["province", "gyeonggi_city", "national"] if k in current["region_level"].unique().tolist()]
+    if not detail_levels:
+        st.info("지역 상세를 표시할 데이터가 없습니다.")
+    else:
+        d1, d2 = st.columns(2)
+        with d1:
+            level_sel = st.selectbox(
+                "상세 권역",
+                detail_levels,
+                format_func=lambda x: SCOPE_MAP.get(x, x),
+                key="status_detail_level",
+            )
+        with d2:
+            region_options = sorted(current[current["region_level"] == level_sel]["region_name"].dropna().unique().tolist())
+            region_sel = st.selectbox("상세 지역", region_options, key="status_detail_region")
+
+        region_hist = df[(df["region_level"] == level_sel) & (df["region_name"] == region_sel)].copy()
+        month_score = (
+            region_hist.groupby("snapshot_month", as_index=False)["current_signal_score"]
+            .sum()
+            .sort_values("snapshot_month")
+            .set_index("snapshot_month")
+        )
+        st.markdown("### 월별 위험점수")
+        st.line_chart(month_score)
+
+        signal_timeline = (
+            region_hist.pivot_table(
+                index="snapshot_month",
+                columns="indicator",
+                values="current_signal",
+                aggfunc="first",
+            )
+            .sort_index()
+            .reset_index()
+        )
+        st.markdown("### 지표 신호 타임라인")
+        st.dataframe(signal_timeline, use_container_width=True)
+
+with index_tab:
+    st.markdown("## 2. 우선관리 지역")
+    st.markdown(
+        """
+        <div class="score-method">
+          <div><strong>지수별 산출방법</strong></div>
+          <ul>
+            <li>현재위험점수: 주의×2 + 관심×1</li>
+            <li>변화점수: 현재위험점수 - 전월위험점수</li>
+            <li>장기취약정규점수: 최근 12개월 위험점수(최근 3개월 가중) 정규화</li>
+            <li>연속비정상지표수: 3개월 연속(전전월·전월·당월) 관심/주의인 지표 개수</li>
+            <li>우선순위점수: 현재위험점수×0.5 + 변화점수×0.3 + 장기취약정규점수×0.2</li>
+          </ul>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+    show_cols = [
+        "region_name",
+        "우선순위점수",
+        "현재위험점수",
+        "변화점수",
+        "연속비정상지표수",
+        "장기취약정규점수",
+        "추세",
+    ]
+    st.markdown("### 시도 Top 10")
+    render_centered_table(
+        priority[priority["region_level"] == "province"][show_cols].head(10).rename(columns={"region_name": "지역명"})
+    )
+
+    st.markdown("### 경기 시군 Top 10")
+    render_centered_table(
+        priority[priority["region_level"] == "gyeonggi_city"][show_cols].head(10).rename(columns={"region_name": "지역명"})
+    )
+
+    st.divider()
+
+    st.markdown("## 3. 장기취약 지역 (최근 12개월)")
+    st.markdown(
+        """
+        <div class="score-method">
+          <div><strong>점수 산출방법</strong></div>
+          <ul>
+            <li>월위험점수: 당월 지표 신호 점수 합계(정상=0, 관심=1, 주의=2)</li>
+            <li>장기취약점수: 최근 최대 12개월 월위험점수 가중합(최근 3개월 1.5배, 그 외 1.0배)</li>
+            <li>장기취약정규점수: 지역별 장기취약점수를 0~100으로 Min-Max 정규화</li>
+            <li>추세변화: 최근 3개월 평균 월위험점수 - 이전 3개월 평균 월위험점수</li>
+            <li>추세: 추세변화가 1 이상이면 악화, -1 이하이면 개선, 그 외는 유지</li>
+          </ul>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+    long_view = priority[
+        [
+            "권역",
+            "region_name",
+            "장기취약점수",
+            "장기취약정규점수",
+            "추세변화",
+            "추세",
+            "현재위험점수",
+        ]
+    ].rename(columns={"region_name": "지역명"}).sort_values("장기취약점수", ascending=False)
+    render_centered_table(long_view.head(10))
 
 st.divider()
 
