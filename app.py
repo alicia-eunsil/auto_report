@@ -20,6 +20,15 @@ SCOPE_MAP = {
 st.set_page_config(page_title="고용보험 조기경보 월간 리포트", layout="wide")
 st.title("고용보험 조기경보 월간 리포트")
 st.caption("현황 + 변화 + 지속성 중심 우선관리 리포트")
+st.markdown(
+    """
+    <style>
+    table.report-table { width: 100%; border-collapse: collapse; }
+    table.report-table th, table.report-table td { text-align: center !important; }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
 
 
 def load_data() -> pd.DataFrame:
@@ -297,12 +306,8 @@ def indicator_count_view(src: pd.DataFrame, levels: list[str]) -> pd.DataFrame:
     return out[["지표", "정상", "관심", "주의"]].sort_values("지표").reset_index(drop=True)
 
 
-def center_table(df: pd.DataFrame) -> pd.io.formats.style.Styler:
-    return df.style.set_properties(**{"text-align": "center"}).set_table_styles(
-        [
-            {"selector": "th", "props": [("text-align", "center")]},
-        ]
-    )
+def render_centered_table(df: pd.DataFrame) -> None:
+    st.markdown(df.to_html(index=False, classes="report-table"), unsafe_allow_html=True)
 
 
 def indicator_count_view_gyeonggi(src: pd.DataFrame) -> pd.DataFrame:
@@ -320,10 +325,10 @@ st.markdown("### 지표별 현황 (전국 / 경기도)")
 v1, v2 = st.columns(2)
 with v1:
     st.markdown("#### 전국(전국 + 17개 시도)")
-    st.dataframe(center_table(indicator_count_view(current, ["national", "province"])), use_container_width=True)
+    render_centered_table(indicator_count_view(current, ["national", "province"]))
 with v2:
     st.markdown("#### 경기도(경기도 + 31개 시군)")
-    st.dataframe(center_table(indicator_count_view_gyeonggi(current)), use_container_width=True)
+    render_centered_table(indicator_count_view_gyeonggi(current))
 
 st.divider()
 
