@@ -345,15 +345,13 @@ show_cols = [
 p1, p2 = st.columns(2)
 with p1:
     st.markdown("### 시도 Top 10")
-    st.dataframe(
-        priority[priority["region_level"] == "province"][show_cols].head(10).rename(columns={"region_name": "지역명"}),
-        use_container_width=True,
+    render_centered_table(
+        priority[priority["region_level"] == "province"][show_cols].head(10).rename(columns={"region_name": "지역명"})
     )
 with p2:
     st.markdown("### 경기 시군 Top 15")
-    st.dataframe(
-        priority[priority["region_level"] == "gyeonggi_city"][show_cols].head(15).rename(columns={"region_name": "지역명"}),
-        use_container_width=True,
+    render_centered_table(
+        priority[priority["region_level"] == "gyeonggi_city"][show_cols].head(15).rename(columns={"region_name": "지역명"})
     )
 
 st.divider()
