@@ -246,7 +246,15 @@ prev_caution = set(
 )
 
 kpi_caution_regions = len(cur_caution)
-kpi_worsened_regions = int((priority["변화점수"] > 0).sum()) if not priority.empty else 0
+
+def is_worsened(prev_sig: str, cur_sig: str) -> bool:
+    return (prev_sig == "정상" and cur_sig in {"관심", "주의"}) or (prev_sig == "관심" and cur_sig == "주의")
+
+
+worsened_rows = current[current.apply(lambda r: is_worsened(str(r["prev_1m_signal"]), str(r["current_signal"])), axis=1)]
+worsened_regions = set(zip(worsened_rows["region_level"], worsened_rows["region_name"]))
+kpi_worsened_regions = len(worsened_regions)
+
 kpi_persistent_regions = int((priority["연속비정상지표수"] > 0).sum()) if not priority.empty else 0
 kpi_new_caution = len(cur_caution - prev_caution)
 
