@@ -25,6 +25,9 @@ st.markdown(
     <style>
     table.report-table { width: 100%; border-collapse: collapse; }
     table.report-table th, table.report-table td { text-align: center !important; }
+    .score-method { font-size: 0.84rem; line-height: 1.2; margin-top: 0.1rem; }
+    .score-method ul { margin: 0.2rem 0 0.4rem 1.0rem; padding-left: 0.6rem; }
+    .score-method li { margin: 0.1rem 0; }
     </style>
     """,
     unsafe_allow_html=True,
@@ -333,12 +336,21 @@ with v2:
 st.divider()
 
 st.markdown("## 2. 우선관리 지역")
-st.markdown("**지수별 산출방법**")
-st.markdown("- 현재위험점수: 주의×2 + 관심×1")
-st.markdown("- 변화점수: 현재위험점수 - 전월위험점수")
-st.markdown("- 장기취약정규점수: 최근 12개월 위험점수(최근 3개월 가중) 정규화")
-st.markdown("- 연속비정상지표수: 3개월 연속(전전월·전월·당월) 관심/주의인 지표 개수")
-st.markdown("- 우선순위점수: 현재위험점수×0.5 + 변화점수×0.3 + 장기취약정규점수×0.2")
+st.markdown(
+    """
+    <div class="score-method">
+      <div><strong>지수별 산출방법</strong></div>
+      <ul>
+        <li>현재위험점수: 주의×2 + 관심×1</li>
+        <li>변화점수: 현재위험점수 - 전월위험점수</li>
+        <li>장기취약정규점수: 최근 12개월 위험점수(최근 3개월 가중) 정규화</li>
+        <li>연속비정상지표수: 3개월 연속(전전월·전월·당월) 관심/주의인 지표 개수</li>
+        <li>우선순위점수: 현재위험점수×0.5 + 변화점수×0.3 + 장기취약정규점수×0.2</li>
+      </ul>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
 show_cols = [
     "region_name",
     "우선순위점수",
