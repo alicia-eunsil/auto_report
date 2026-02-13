@@ -165,19 +165,9 @@ def build_priority_table(
     return merged.sort_values(["우선순위점수", "현재위험점수"], ascending=[False, False]).reset_index(drop=True)
 
 
-def build_indicator_flow(current_df: pd.DataFrame) -> tuple[pd.DataFrame, dict[str, float | int | str]]:
-    empty_summary: dict[str, float | int | str] = {
-        "overall": "판정 불가",
-        "net_momentum": 0,
-        "spread_diff_pp": 0.0,
-        "caution_delta_pp": 0.0,
-        "consec_worse_regions": 0,
-        "consec_improve_regions": 0,
-        "reworse_regions": 0,
-        "reimprove_regions": 0,
-    }
+def build_indicator_flow(current_df: pd.DataFrame) -> pd.DataFrame:
     if current_df.empty:
-        return pd.DataFrame(), empty_summary
+        return pd.DataFrame()
 
     work = current_df[
         ["region_level", "region_name", "indicator", "prev_2m_signal", "prev_1m_signal", "current_signal"]
@@ -188,7 +178,7 @@ def build_indicator_flow(current_df: pd.DataFrame) -> tuple[pd.DataFrame, dict[s
     work["cur"] = work["current_signal"].map(score_map)
     valid = work[work["prev2"].notna() & work["prev1"].notna() & work["cur"].notna()].copy()
     if valid.empty:
-        return pd.DataFrame(), empty_summary
+        return pd.DataFrame()
 
     valid["d0"] = valid["prev1"] - valid["prev2"]  # 전전월 -> 전월 변화
     valid["d1"] = valid["cur"] - valid["prev1"]  # 전월 -> 당월 변화
@@ -206,7 +196,6 @@ def build_indicator_flow(current_df: pd.DataFrame) -> tuple[pd.DataFrame, dict[s
             전월당월_악화=("d1", lambda s: int((s > 0).sum())),
             전월당월_개선=("d1", lambda s: int((s < 0).sum())),
             전월당월_유지=("d1", lambda s: int((s == 0).sum())),
-            순모멘텀=("d1", "sum"),
             연속악화건수=("is_consec_worse", "sum"),
             연속개선건수=("is_consec_improve", "sum"),
             재악화건수=("is_reworse", "sum"),
@@ -230,37 +219,41 @@ def build_indicator_flow(current_df: pd.DataFrame) -> tuple[pd.DataFrame, dict[s
         .sort_values(["전월→당월 악화", "2개월 연속 악화", "지표"], ascending=[False, False, True])
         .reset_index(drop=True)
     )
+    return out
 
-    net_momentum = int(valid["d1"].sum())
-    worsen_ratio = float((valid["d1"] > 0).mean())
-    improve_ratio = float((valid["d1"] < 0).mean())
-    spread_diff = worsen_ratio - improve_ratio
-    caution_delta = float((valid["cur"] == 2).mean() - (valid["prev1"] == 2).mean())
-
-    region_cols = ["region_level", "region_name"]
-    consec_worse_regions = int(valid.loc[valid["is_consec_worse"] == 1, region_cols].drop_duplicates().shape[0])
-    consec_improve_regions = int(valid.loc[valid["is_consec_improve"] == 1, region_cols].drop_duplicates().shape[0])
-    reworse_regions = int(valid.loc[valid["is_reworse"] == 1, region_cols].drop_duplicates().shape[0])
-    reimprove_regions = int(valid.loc[valid["is_reimprove"] == 1, region_cols].drop_duplicates().shape[0])
-
-    if net_momentum > 0 and spread_diff > 0:
-        overall = "전반 악화 우세"
-    elif net_momentum < 0 and spread_diff < 0:
-        overall = "전반 개선 우세"
-    else:
-        overall = "혼조/보합"
-
-    summary: dict[str, float | int | str] = {
-        "overall": overall,
-        "net_momentum": net_momentum,
-        "spread_diff_pp": spread_diff * 100,
-        "caution_delta_pp": caution_delta * 100,
-        "consec_worse_regions": consec_worse_regions,
-        "consec_improve_regions": consec_improve_regions,
-        "reworse_regions": reworse_regions,
-        "reimprove_regions": reimprove_regions,
+def build_direction_summary(current_df: pd.DataFrame) -> dict[str, int]:
+    summary = {
+        "consec_worse_regions": 0,
+        "consec_improve_regions": 0,
+        "reworse_regions": 0,
+        "reimprove_regions": 0,
     }
-    return out, summary
+    if current_df.empty:
+        return summary
+
+    work = current_df[
+        ["region_level", "region_name", "prev_2m_signal", "prev_1m_signal", "current_signal"]
+    ].copy()
+    score_map = {"정상": 0, "관심": 1, "주의": 2}
+    work["prev2"] = work["prev_2m_signal"].map(score_map)
+    work["prev1"] = work["prev_1m_signal"].map(score_map)
+    work["cur"] = work["current_signal"].map(score_map)
+    valid = work[work["prev2"].notna() & work["prev1"].notna() & work["cur"].notna()].copy()
+    if valid.empty:
+        return summary
+
+    valid["d0"] = valid["prev1"] - valid["prev2"]
+    valid["d1"] = valid["cur"] - valid["prev1"]
+    region_cols = ["region_level", "region_name"]
+    summary["consec_worse_regions"] = int(valid.loc[(valid["d0"] > 0) & (valid["d1"] > 0), region_cols].drop_duplicates().shape[0])
+    summary["consec_improve_regions"] = int(
+        valid.loc[(valid["d0"] < 0) & (valid["d1"] < 0), region_cols].drop_duplicates().shape[0]
+    )
+    summary["reworse_regions"] = int(valid.loc[(valid["d0"] < 0) & (valid["d1"] > 0), region_cols].drop_duplicates().shape[0])
+    summary["reimprove_regions"] = int(
+        valid.loc[(valid["d0"] > 0) & (valid["d1"] < 0), region_cols].drop_duplicates().shape[0]
+    )
+    return summary
 
 
 def build_export_excel(
@@ -317,7 +310,8 @@ prev_region = build_region_snapshot(prev)
 region_month = build_region_month_scores(df)
 long_term = build_long_term_scores(region_month, months, selected_month)
 priority = build_priority_table(current_region, prev_region, long_term)
-indicator_flow, flow_summary = build_indicator_flow(current)
+indicator_flow = build_indicator_flow(current)
+direction_summary = build_direction_summary(current)
 
 cur_caution = set(
     zip(
@@ -418,18 +412,11 @@ with status_tab:
     if indicator_flow.empty:
         st.info("신호 비교 데이터(prev_2m/prev_1m/current)가 없어 변화 분석이 불가능합니다.")
     else:
-        st.markdown(f"**전반 판정: {flow_summary['overall']}**")
         f1, f2, f3, f4 = st.columns(4)
-        f1.metric("순모멘텀(전월→당월)", int(flow_summary["net_momentum"]))
-        f2.metric("확산차(악화-개선)", f"{float(flow_summary['spread_diff_pp']):+.1f}%p")
-        f3.metric("2개월 연속 악화 지역", int(flow_summary["consec_worse_regions"]))
-        f4.metric("재악화 지역", int(flow_summary["reworse_regions"]))
-        st.caption(
-            "보조지표: "
-            f"2개월 연속 개선 지역 {int(flow_summary['consec_improve_regions'])}개, "
-            f"재개선 지역 {int(flow_summary['reimprove_regions'])}개, "
-            f"주의비중 변화 {float(flow_summary['caution_delta_pp']):+.1f}%p"
-        )
+        f1.metric("2개월 연속 악화 지역", int(direction_summary["consec_worse_regions"]))
+        f2.metric("2개월 연속 개선 지역", int(direction_summary["consec_improve_regions"]))
+        f3.metric("재악화 지역", int(direction_summary["reworse_regions"]))
+        f4.metric("재개선 지역", int(direction_summary["reimprove_regions"]))
         render_centered_table(indicator_flow)
 
     st.markdown("### 현재 신호 분포")
