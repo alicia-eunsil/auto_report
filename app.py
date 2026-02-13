@@ -334,7 +334,6 @@ st.divider()
 
 st.markdown("## 2. 우선관리 지역")
 show_cols = [
-    "권역",
     "region_name",
     "우선순위점수",
     "현재위험점수",
