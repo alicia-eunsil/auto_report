@@ -399,7 +399,7 @@ long_view = priority[
         "현재위험점수",
     ]
 ].rename(columns={"region_name": "지역명"}).sort_values("장기취약점수", ascending=False)
-st.dataframe(long_view.head(30), use_container_width=True)
+render_centered_table(long_view.head(30))
 
 st.divider()
 
