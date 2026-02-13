@@ -238,10 +238,10 @@ cur_caution = set(
         current.loc[current["current_signal"] == "주의", "region_name"],
     )
 )
-prev_caution = set(
+prev1m_caution = set(
     zip(
-        prev.loc[prev["current_signal"] == "주의", "region_level"],
-        prev.loc[prev["current_signal"] == "주의", "region_name"],
+        current.loc[current["prev_1m_signal"] == "주의", "region_level"],
+        current.loc[current["prev_1m_signal"] == "주의", "region_name"],
     )
 )
 
@@ -256,7 +256,7 @@ worsened_regions = set(zip(worsened_rows["region_level"], worsened_rows["region_
 kpi_worsened_regions = len(worsened_regions)
 
 kpi_persistent_regions = int((priority["연속비정상지표수"] > 0).sum()) if not priority.empty else 0
-kpi_new_caution = len(cur_caution - prev_caution)
+kpi_new_caution = len(cur_caution - prev1m_caution)
 
 top_target = priority.head(1)
 top_target_text = (
