@@ -333,6 +333,12 @@ with v2:
 st.divider()
 
 st.markdown("## 2. 우선관리 지역")
+st.caption(
+    "지수별 산출방법: 현재위험점수=주의×2+관심×1, 변화점수=현재위험점수-전월위험점수, "
+    "장기취약정규점수=최근 12개월 위험점수(최근 3개월 가중) 정규화, "
+    "연속비정상지표수=3개월 연속(전전월·전월·당월) 관심/주의인 지표 개수, "
+    "우선순위점수=현재위험점수×0.5+변화점수×0.3+장기취약정규점수×0.2"
+)
 show_cols = [
     "region_name",
     "우선순위점수",
@@ -349,9 +355,9 @@ with p1:
         priority[priority["region_level"] == "province"][show_cols].head(10).rename(columns={"region_name": "지역명"})
     )
 with p2:
-    st.markdown("### 경기 시군 Top 15")
+    st.markdown("### 경기 시군 Top 10")
     render_centered_table(
-        priority[priority["region_level"] == "gyeonggi_city"][show_cols].head(15).rename(columns={"region_name": "지역명"})
+        priority[priority["region_level"] == "gyeonggi_city"][show_cols].head(10).rename(columns={"region_name": "지역명"})
     )
 
 st.divider()
