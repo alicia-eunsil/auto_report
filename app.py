@@ -221,12 +221,16 @@ def build_indicator_flow(current_df: pd.DataFrame) -> pd.DataFrame:
     )
     return out
 
-def build_direction_summary(current_df: pd.DataFrame) -> dict[str, int]:
+def build_direction_summary(current_df: pd.DataFrame) -> dict[str, int | list[str]]:
     summary = {
         "consec_worse_regions": 0,
         "consec_improve_regions": 0,
         "reworse_regions": 0,
         "reimprove_regions": 0,
+        "consec_worse_names": [],
+        "consec_improve_names": [],
+        "reworse_names": [],
+        "reimprove_names": [],
     }
     if current_df.empty:
         return summary
@@ -244,16 +248,43 @@ def build_direction_summary(current_df: pd.DataFrame) -> dict[str, int]:
 
     valid["d0"] = valid["prev1"] - valid["prev2"]
     valid["d1"] = valid["cur"] - valid["prev1"]
-    region_cols = ["region_level", "region_name"]
-    summary["consec_worse_regions"] = int(valid.loc[(valid["d0"] > 0) & (valid["d1"] > 0), region_cols].drop_duplicates().shape[0])
-    summary["consec_improve_regions"] = int(
-        valid.loc[(valid["d0"] < 0) & (valid["d1"] < 0), region_cols].drop_duplicates().shape[0]
-    )
-    summary["reworse_regions"] = int(valid.loc[(valid["d0"] < 0) & (valid["d1"] > 0), region_cols].drop_duplicates().shape[0])
-    summary["reimprove_regions"] = int(
-        valid.loc[(valid["d0"] > 0) & (valid["d1"] < 0), region_cols].drop_duplicates().shape[0]
-    )
+    region_cols = ["region_name"]
+
+    def extract_region_names(mask: pd.Series) -> list[str]:
+        names = (
+            valid.loc[mask, region_cols]
+            .drop_duplicates()["region_name"]
+            .dropna()
+            .astype(str)
+            .tolist()
+        )
+        return sorted(names)
+
+    consec_worse_names = extract_region_names((valid["d0"] > 0) & (valid["d1"] > 0))
+    consec_improve_names = extract_region_names((valid["d0"] < 0) & (valid["d1"] < 0))
+    reworse_names = extract_region_names((valid["d0"] < 0) & (valid["d1"] > 0))
+    reimprove_names = extract_region_names((valid["d0"] > 0) & (valid["d1"] < 0))
+
+    summary["consec_worse_regions"] = len(consec_worse_names)
+    summary["consec_improve_regions"] = len(consec_improve_names)
+    summary["reworse_regions"] = len(reworse_names)
+    summary["reimprove_regions"] = len(reimprove_names)
+    summary["consec_worse_names"] = consec_worse_names
+    summary["consec_improve_names"] = consec_improve_names
+    summary["reworse_names"] = reworse_names
+    summary["reimprove_names"] = reimprove_names
     return summary
+
+
+def format_region_names(names: list[str], limit: int = 6) -> str:
+    if not names:
+        return "-"
+    shown = names[:limit]
+    remain = len(names) - len(shown)
+    text = ", ".join(shown)
+    if remain > 0:
+        text += f" 외 {remain}곳"
+    return text
 
 
 def build_export_excel(
@@ -413,10 +444,18 @@ with status_tab:
         st.info("신호 비교 데이터(prev_2m/prev_1m/current)가 없어 변화 분석이 불가능합니다.")
     else:
         f1, f2, f3, f4 = st.columns(4)
-        f1.metric("2개월 연속 악화 지역", int(direction_summary["consec_worse_regions"]))
-        f2.metric("2개월 연속 개선 지역", int(direction_summary["consec_improve_regions"]))
-        f3.metric("재악화 지역", int(direction_summary["reworse_regions"]))
-        f4.metric("재개선 지역", int(direction_summary["reimprove_regions"]))
+        with f1:
+            st.metric("2개월 연속 악화 지역", int(direction_summary["consec_worse_regions"]))
+            st.caption(format_region_names(direction_summary["consec_worse_names"]))
+        with f2:
+            st.metric("2개월 연속 개선 지역", int(direction_summary["consec_improve_regions"]))
+            st.caption(format_region_names(direction_summary["consec_improve_names"]))
+        with f3:
+            st.metric("재악화 지역", int(direction_summary["reworse_regions"]))
+            st.caption(format_region_names(direction_summary["reworse_names"]))
+        with f4:
+            st.metric("재개선 지역", int(direction_summary["reimprove_regions"]))
+            st.caption(format_region_names(direction_summary["reimprove_names"]))
         render_centered_table(indicator_flow)
 
     st.markdown("### 현재 신호 분포")
