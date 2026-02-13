@@ -165,27 +165,43 @@ def build_priority_table(
     return merged.sort_values(["우선순위점수", "현재위험점수"], ascending=[False, False]).reset_index(drop=True)
 
 
-def build_indicator_flow(current_df: pd.DataFrame, prev_df: pd.DataFrame) -> pd.DataFrame:
-    if current_df.empty or prev_df.empty:
+def build_indicator_flow(current_df: pd.DataFrame) -> pd.DataFrame:
+    if current_df.empty:
         return pd.DataFrame()
 
-    key_cols = ["region_level", "region_name", "indicator"]
-    cur = current_df[key_cols + ["current_signal_score"]].rename(columns={"current_signal_score": "cur"})
-    prev = prev_df[key_cols + ["current_signal_score"]].rename(columns={"current_signal_score": "prev"})
-    merged = cur.merge(prev, on=key_cols, how="inner")
-    merged["diff"] = merged["cur"] - merged["prev"]
+    work = current_df[["indicator", "prev_2m_signal", "prev_1m_signal", "current_signal"]].copy()
+    score_map = {"정상": 0, "관심": 1, "주의": 2}
+    work["prev2"] = work["prev_2m_signal"].map(score_map)
+    work["prev1"] = work["prev_1m_signal"].map(score_map)
+    work["cur"] = work["current_signal"].map(score_map)
 
-    out = (
-        merged.groupby("indicator", as_index=False)
-        .agg(
-            악화건수=("diff", lambda s: int((s > 0).sum())),
-            개선건수=("diff", lambda s: int((s < 0).sum())),
-            유지건수=("diff", lambda s: int((s == 0).sum())),
+    def summarize_transition(src: pd.DataFrame, from_col: str, to_col: str, prefix: str) -> pd.DataFrame:
+        valid = src[src[from_col].notna() & src[to_col].notna()].copy()
+        valid["diff"] = valid[to_col] - valid[from_col]
+        return (
+            valid.groupby("indicator", as_index=False)
+            .agg(
+                **{
+                    f"{prefix} 악화": ("diff", lambda s: int((s > 0).sum())),
+                    f"{prefix} 개선": ("diff", lambda s: int((s < 0).sum())),
+                    f"{prefix} 유지": ("diff", lambda s: int((s == 0).sum())),
+                }
+            )
+            .reset_index(drop=True)
         )
-        .sort_values("악화건수", ascending=False)
-        .reset_index(drop=True)
+
+    p2_to_p1 = summarize_transition(work, "prev2", "prev1", "전전월→전월")
+    p1_to_cur = summarize_transition(work, "prev1", "cur", "전월→당월")
+    if p2_to_p1.empty and p1_to_cur.empty:
+        return pd.DataFrame()
+
+    out = p2_to_p1.merge(p1_to_cur, on="indicator", how="outer").fillna(0)
+    count_cols = [c for c in out.columns if c != "indicator"]
+    out[count_cols] = out[count_cols].astype(int)
+    out = out.rename(columns={"indicator": "지표"})
+    return out.sort_values(["전월→당월 악화", "전전월→전월 악화", "지표"], ascending=[False, False, True]).reset_index(
+        drop=True
     )
-    return out
 
 
 def build_export_excel(
@@ -242,7 +258,7 @@ prev_region = build_region_snapshot(prev)
 region_month = build_region_month_scores(df)
 long_term = build_long_term_scores(region_month, months, selected_month)
 priority = build_priority_table(current_region, prev_region, long_term)
-indicator_flow = build_indicator_flow(current, prev)
+indicator_flow = build_indicator_flow(current)
 
 cur_caution = set(
     zip(
@@ -341,7 +357,7 @@ with status_tab:
     st.markdown("## 2. 확산/개선 흐름")
     st.markdown("### 지표별 악화/개선")
     if indicator_flow.empty:
-        st.info("전월 데이터가 없어 변화 분석이 불가능합니다.")
+        st.info("신호 비교 데이터(prev_2m/prev_1m/current)가 없어 변화 분석이 불가능합니다.")
     else:
         render_centered_table(indicator_flow)
 
