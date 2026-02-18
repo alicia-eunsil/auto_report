@@ -390,7 +390,7 @@ c4.metric("신규 주의 지역", kpi_new_caution)
 st.markdown("### 핵심 요약")
 st.markdown("\n".join(summary_lines))
 
-def indicator_count_view(src: pd.DataFrame, levels: list[str]) -> pd.DataFrame:
+def _indicator_signal_counts(src: pd.DataFrame, levels: list[str]) -> pd.DataFrame:
     out = src[src["region_level"].isin(levels)].copy()
     if out.empty:
         return pd.DataFrame(columns=["지표", "정상", "관심", "주의"])
@@ -409,29 +409,77 @@ def indicator_count_view(src: pd.DataFrame, levels: list[str]) -> pd.DataFrame:
     return out[["지표", "정상", "관심", "주의"]].sort_values("지표").reset_index(drop=True)
 
 
+def _format_count_delta(cur: int, prev: int | None) -> str:
+    if prev is None:
+        return f"{cur} (-)"
+    diff = cur - prev
+    if diff > 0:
+        return f"{cur} (↑{diff})"
+    if diff < 0:
+        return f"{cur} (↓{abs(diff)})"
+    return f"{cur} (→0)"
+
+
+def indicator_count_view(current_src: pd.DataFrame, prev_src: pd.DataFrame, levels: list[str]) -> pd.DataFrame:
+    cur = _indicator_signal_counts(current_src, levels)
+    if cur.empty:
+        return pd.DataFrame(columns=["지표", "정상", "관심", "주의"])
+
+    has_prev = not prev_src.empty
+    prev = _indicator_signal_counts(prev_src, levels) if has_prev else pd.DataFrame(columns=cur.columns)
+
+    merged = cur.rename(columns={c: f"{c}_cur" for c in ["정상", "관심", "주의"]}).merge(
+        prev.rename(columns={c: f"{c}_prev" for c in ["정상", "관심", "주의"]}),
+        on="지표",
+        how="left",
+    )
+    for col in ["정상_prev", "관심_prev", "주의_prev"]:
+        if col not in merged.columns:
+            merged[col] = 0
+    merged[["정상_prev", "관심_prev", "주의_prev"]] = merged[["정상_prev", "관심_prev", "주의_prev"]].fillna(0).astype(int)
+
+    out = pd.DataFrame({"지표": merged["지표"]})
+    for sig in ["정상", "관심", "주의"]:
+        cur_col = f"{sig}_cur"
+        prev_col = f"{sig}_prev"
+        out[sig] = merged.apply(
+            lambda r: _format_count_delta(int(r[cur_col]), int(r[prev_col]) if has_prev else None),
+            axis=1,
+        )
+    return out[["지표", "정상", "관심", "주의"]].sort_values("지표").reset_index(drop=True)
+
+
 def render_centered_table(df: pd.DataFrame) -> None:
     st.markdown(df.to_html(index=False, classes="report-table"), unsafe_allow_html=True)
 
 
-def indicator_count_view_gyeonggi(src: pd.DataFrame) -> pd.DataFrame:
-    gg = pd.concat(
+def indicator_count_view_gyeonggi(current_src: pd.DataFrame, prev_src: pd.DataFrame) -> pd.DataFrame:
+    gg_cur = pd.concat(
         [
-            src[(src["region_level"] == "province") & (src["region_name"] == "경기도")],
-            src[src["region_level"] == "gyeonggi_city"],
+            current_src[(current_src["region_level"] == "province") & (current_src["region_name"] == "경기도")],
+            current_src[current_src["region_level"] == "gyeonggi_city"],
         ],
         ignore_index=True,
     )
-    return indicator_count_view(gg, ["province", "gyeonggi_city"])
+    gg_prev = pd.concat(
+        [
+            prev_src[(prev_src["region_level"] == "province") & (prev_src["region_name"] == "경기도")],
+            prev_src[prev_src["region_level"] == "gyeonggi_city"],
+        ],
+        ignore_index=True,
+    )
+    return indicator_count_view(gg_cur, gg_prev, ["province", "gyeonggi_city"])
 
 
 st.markdown("### 지표별 현황 (전국 / 경기도)")
+st.caption("표기: 현재값 (전월 대비 증감, ↑증가 ↓감소 →변동없음)")
 v1, v2 = st.columns(2)
 with v1:
     st.markdown("#### 전국(전국 + 17개 시도)")
-    render_centered_table(indicator_count_view(current, ["national", "province"]))
+    render_centered_table(indicator_count_view(current, prev, ["national", "province"]))
 with v2:
     st.markdown("#### 경기도(경기도 + 31개 시군)")
-    render_centered_table(indicator_count_view_gyeonggi(current))
+    render_centered_table(indicator_count_view_gyeonggi(current, prev))
 
 st.divider()
 
