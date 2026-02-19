@@ -17,8 +17,8 @@ SCOPE_MAP = {
 }
 
 
-st.set_page_config(page_title="고용보험 조기경보 월간 리포트", layout="wide")
-st.title("고용보험 조기경보 월간 리포트")
+st.set_page_config(page_title="조기경보서비스 월간 리포트(based on 고용보험 데이터)", layout="wide")
+st.title("조기경보서비스 월간 리포트(based on 고용보험 데이터)")
 st.caption("현황 + 변화 + 지속성 중심 우선관리 리포트")
 st.markdown(
     """

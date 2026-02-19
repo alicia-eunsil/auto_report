@@ -153,3 +153,64 @@ cp config/selectors.example.json config/selectors.json
 5. Streamlit 앱 새로고침
 
 이 5단계를 통과하면, 월말 자동수집 + 보고서 조회 흐름이 완성됩니다.
+
+---
+
+## 10) 운영 보완안: 월말 + 익월초 재시도 정책
+
+현재 워크플로는 "월말일에 수집 1회 시도" 구조이므로, 아래 운영 정책을 같이 적용하는 것을 권장합니다.
+
+### 10-1. 기본 실행 시각
+- 월말 본수집: 매월 말일 22:00(KST)
+
+### 10-2. 재시도 창 (권장)
+- 익월 1일 08:00(KST)
+- 익월 1일 14:00(KST)
+- 익월 1일 20:00(KST)
+
+각 재시도는 GitHub Actions `Run workflow`에서 아래로 실행:
+- `Monthly Collect`
+- `force_month_end=true`
+
+### 10-3. 재시도 수행 조건
+아래 중 하나라도 해당되면 재시도:
+1. `data/snapshots/YYYY-MM.csv` 파일 미생성
+2. `validate_snapshot.py` 실패
+3. `reports/YYYY-MM/report_YYYY-MM.xlsx` 미생성
+
+### 10-4. 중복 실행 방지
+아래 모두 충족 시 추가 재시도 중단:
+1. 최신 월 스냅샷 생성 완료
+2. 검증 통과
+3. 마스터/리포트 파일 생성 완료
+
+---
+
+## 11) 실패 알림 체크리스트
+
+월말/재시도 실행 후 아래 순서대로 점검하세요.
+
+### 11-1. 실행 상태 확인
+1. GitHub Actions에서 `Run collector on month-end` 성공 여부
+2. `collector_ran=1` 여부
+
+### 11-2. 수집 실패 시 즉시 확인
+1. `artifacts/collector_failure.png` 확인
+2. 로그인 요소(`observer_login_button`, `login_success_anchor`) 유효성 확인
+3. 핵심 셀렉터(`employment_tab_button`, 카드/지표 셀렉터) 유효성 확인
+
+### 11-3. 검증 실패 시 확인
+1. region count(1/17/31) 충족 여부
+2. indicator count(6) 충족 여부
+3. signal 값(정상/관심/주의) 유효 여부
+
+### 11-4. 산출물 확인
+1. `data/snapshots/YYYY-MM.csv`
+2. `data/master/employment_master.csv`
+3. `reports/YYYY-MM/report_YYYY-MM.xlsx`
+
+### 11-5. 복구 절차
+1. `config/selectors.json` 수정
+2. `force_month_end=true`로 수동 재실행
+3. 검증/리포트 생성 성공 확인
+4. 변경 파일 push 확인
