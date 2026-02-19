@@ -517,6 +517,40 @@ def render_worse_monthly_line_chart(wide_df: pd.DataFrame) -> None:
     st.altair_chart((line + point).properties(height=300), use_container_width=True)
 
 
+def render_region_month_heatmap(
+    src: pd.DataFrame, title: str, month_order: list[str], selected_month: str
+) -> None:
+    st.markdown(f"#### {title}")
+    if src.empty:
+        st.info("히트맵을 표시할 데이터가 없습니다.")
+        return
+
+    work = src.copy()
+    work["snapshot_month"] = work["snapshot_month"].astype(str)
+    work["region_name"] = work["region_name"].astype(str)
+
+    latest = (
+        work[work["snapshot_month"] == selected_month][["region_name", "월위험점수"]]
+        .sort_values(["월위험점수", "region_name"], ascending=[False, True])
+        .drop_duplicates("region_name")
+    )
+    region_order = latest["region_name"].tolist()
+    remaining = sorted(set(work["region_name"].tolist()) - set(region_order))
+    region_order = region_order + remaining
+
+    chart = (
+        alt.Chart(work)
+        .mark_rect()
+        .encode(
+            x=alt.X("snapshot_month:O", sort=month_order, title="월"),
+            y=alt.Y("region_name:N", sort=region_order, title="지역"),
+            color=alt.Color("월위험점수:Q", title="월별 위험점수", scale=alt.Scale(scheme="yelloworangered", domainMin=0)),
+            tooltip=["snapshot_month:N", "region_level:N", "region_name:N", "월위험점수:Q"],
+        )
+    )
+    st.altair_chart(chart.properties(height=max(260, 22 * len(region_order))), use_container_width=True)
+
+
 def indicator_count_view_gyeonggi(current_src: pd.DataFrame, prev_src: pd.DataFrame) -> pd.DataFrame:
     gg_cur = pd.concat(
         [
@@ -573,45 +607,29 @@ with status_tab:
             st.caption(format_region_names(direction_summary["reimprove_names"]))
 
     st.divider()
-    st.markdown("## 3. 지역 상세")
-    detail_levels = [k for k in ["province", "gyeonggi_city", "national"] if k in current["region_level"].unique().tolist()]
-    if not detail_levels:
-        st.info("지역 상세를 표시할 데이터가 없습니다.")
-    else:
-        d1, d2 = st.columns(2)
-        with d1:
-            level_sel = st.selectbox(
-                "상세 권역",
-                detail_levels,
-                format_func=lambda x: SCOPE_MAP.get(x, x),
-                key="status_detail_level",
-            )
-        with d2:
-            region_options = sorted(current[current["region_level"] == level_sel]["region_name"].dropna().unique().tolist())
-            region_sel = st.selectbox("상세 지역", region_options, key="status_detail_region")
-
-        region_hist = df[(df["region_level"] == level_sel) & (df["region_name"] == region_sel)].copy()
-        month_score = (
-            region_hist.groupby("snapshot_month", as_index=False)["current_signal_score"]
-            .sum()
-            .sort_values("snapshot_month")
-            .set_index("snapshot_month")
-        )
-        st.markdown("### 월별 위험점수")
-        st.line_chart(month_score)
-
-        signal_timeline = (
-            region_hist.pivot_table(
-                index="snapshot_month",
-                columns="indicator",
-                values="current_signal",
-                aggfunc="first",
-            )
-            .sort_index()
-            .reset_index()
-        )
-        st.markdown("### 지표 신호 타임라인")
-        st.dataframe(signal_timeline, use_container_width=True)
+    st.markdown("## 3. 지역 월별 위험 히트맵")
+    nationwide_heat = region_month[region_month["region_level"].isin(["national", "province"])].copy()
+    gyeonggi_heat = pd.concat(
+        [
+            region_month[
+                (region_month["region_level"] == "province") & (region_month["region_name"] == "경기도")
+            ],
+            region_month[region_month["region_level"] == "gyeonggi_city"],
+        ],
+        ignore_index=True,
+    )
+    render_region_month_heatmap(
+        nationwide_heat,
+        "전국 + 17개 시도",
+        months,
+        selected_month,
+    )
+    render_region_month_heatmap(
+        gyeonggi_heat,
+        "경기도 + 31개 시군",
+        months,
+        selected_month,
+    )
 
 with index_tab:
     st.markdown("## 2. 우선관리 지역")
