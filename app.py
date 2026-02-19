@@ -221,6 +221,29 @@ def build_indicator_flow(current_df: pd.DataFrame) -> pd.DataFrame:
     )
     return out
 
+
+def build_indicator_worse_monthly(df: pd.DataFrame) -> pd.DataFrame:
+    if df.empty:
+        return pd.DataFrame()
+
+    work = df[["snapshot_month", "indicator", "prev_1m_signal", "current_signal"]].copy()
+    score_map = {"정상": 0, "관심": 1, "주의": 2}
+    work["prev1"] = work["prev_1m_signal"].map(score_map)
+    work["cur"] = work["current_signal"].map(score_map)
+    work = work[work["prev1"].notna() & work["cur"].notna()].copy()
+    if work.empty:
+        return pd.DataFrame()
+
+    work["is_worse"] = (work["cur"] > work["prev1"]).astype(int)
+    monthly = (
+        work.groupby(["snapshot_month", "indicator"], as_index=False)["is_worse"]
+        .sum()
+        .rename(columns={"is_worse": "악화건수"})
+    )
+    pivot = monthly.pivot(index="snapshot_month", columns="indicator", values="악화건수").fillna(0).astype(int)
+    return pivot.sort_index()
+
+
 def build_direction_summary(current_df: pd.DataFrame) -> dict[str, int | list[str]]:
     summary = {
         "consec_worse_regions": 0,
@@ -342,6 +365,7 @@ region_month = build_region_month_scores(df)
 long_term = build_long_term_scores(region_month, months, selected_month)
 priority = build_priority_table(current_region, prev_region, long_term)
 indicator_flow = build_indicator_flow(current)
+indicator_worse_monthly = build_indicator_worse_monthly(df)
 direction_summary = build_direction_summary(current)
 
 cur_caution = set(
@@ -488,6 +512,12 @@ status_tab, index_tab = st.tabs(["현황형 리포트", "지수형 리포트"])
 with status_tab:
     st.markdown("## 2. 확산/개선 흐름")
     st.markdown("### 지표별 악화/개선")
+    st.markdown("#### 지표별 월간 악화건수")
+    if indicator_worse_monthly.empty:
+        st.info("월간 악화건수 그래프를 표시할 데이터가 없습니다.")
+    else:
+        st.bar_chart(indicator_worse_monthly)
+
     if indicator_flow.empty:
         st.info("신호 비교 데이터(prev_2m/prev_1m/current)가 없어 변화 분석이 불가능합니다.")
     else:
