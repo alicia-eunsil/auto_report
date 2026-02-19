@@ -25,9 +25,20 @@ st.markdown(
     <style>
     table.report-table { width: 100%; border-collapse: collapse; }
     table.report-table th, table.report-table td { text-align: center !important; }
-    .score-method { font-size: 0.84rem; line-height: 1.2; margin-top: 0.1rem; }
-    .score-method ul { margin: 0.2rem 0 0.4rem 1.0rem; padding-left: 0.6rem; }
-    .score-method li { margin: 0.1rem 0; }
+    .score-method {
+      font-size: 0.84rem;
+      line-height: 1.45;
+      margin-top: 0.1rem;
+      margin-bottom: 0.8rem;
+    }
+    .score-method ul { margin: 0.25rem 0 0.55rem 1.0rem; padding-left: 0.7rem; }
+    .score-method li { margin: 0.18rem 0; }
+    .score-method-box {
+      border: 1px solid #e6e8ee;
+      border-radius: 8px;
+      padding: 0.45rem 0.75rem;
+      background: #fafbfc;
+    }
     </style>
     """,
     unsafe_allow_html=True,
@@ -618,7 +629,7 @@ with index_tab:
     st.markdown("## 2. 우선관리 지역")
     st.markdown(
         """
-        <div class="score-method">
+        <div class="score-method score-method-box">
           <div><strong>지수별 산출방법</strong></div>
           <ul>
             <li>현재위험점수: 주의×2 + 관심×1</li>
@@ -655,7 +666,7 @@ with index_tab:
     st.markdown("## 3. 장기취약 지역 (최근 12개월)")
     st.markdown(
         """
-        <div class="score-method">
+        <div class="score-method score-method-box">
           <div><strong>점수 산출방법</strong></div>
           <ul>
             <li>장기취약점수: 최근 최대 12개월 월위험점수 가중합(최근 3개월 1.5배, 그 외 1.0배)</li>
