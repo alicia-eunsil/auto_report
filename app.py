@@ -572,23 +572,6 @@ with status_tab:
             st.metric("재개선 지역", int(direction_summary["reimprove_regions"]))
             st.caption(format_region_names(direction_summary["reimprove_names"]))
 
-    st.markdown("### 현재 신호 분포")
-    level_opt = st.selectbox("권역 선택", ["전국", "시도", "경기 시군"], index=1, key="status_level_opt")
-    level_key = {"전국": "national", "시도": "province", "경기 시군": "gyeonggi_city"}[level_opt]
-    heat = (
-        current[current["region_level"] == level_key]
-        .groupby(["indicator", "current_signal"])
-        .size()
-        .unstack(fill_value=0)
-        .rename_axis(None, axis=1)
-        .reset_index()
-    )
-    for col in ["정상", "관심", "주의"]:
-        if col not in heat.columns:
-            heat[col] = 0
-    heat = heat.rename(columns={"indicator": "지표"})[["지표", "정상", "관심", "주의"]]
-    render_centered_table(heat)
-
     st.divider()
     st.markdown("## 3. 지역 상세")
     detail_levels = [k for k in ["province", "gyeonggi_city", "national"] if k in current["region_level"].unique().tolist()]
