@@ -516,7 +516,7 @@ with status_tab:
     if indicator_worse_monthly.empty:
         st.info("월간 악화건수 그래프를 표시할 데이터가 없습니다.")
     else:
-        st.bar_chart(indicator_worse_monthly)
+        st.line_chart(indicator_worse_monthly)
 
     if indicator_flow.empty:
         st.info("신호 비교 데이터(prev_2m/prev_1m/current)가 없어 변화 분석이 불가능합니다.")
