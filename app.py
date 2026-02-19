@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from io import BytesIO
 from pathlib import Path
 
 import altair as alt
@@ -309,22 +308,6 @@ def format_region_names(names: list[str], limit: int = 6) -> str:
     if remain > 0:
         text += f" 외 {remain}곳"
     return text
-
-
-def build_export_excel(
-    summary_df: pd.DataFrame,
-    priority_df: pd.DataFrame,
-    long_term_df: pd.DataFrame,
-    current_raw_df: pd.DataFrame,
-) -> bytes:
-    buffer = BytesIO()
-    with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
-        summary_df.to_excel(writer, sheet_name="월간요약", index=False)
-        priority_df.to_excel(writer, sheet_name="우선관리지역", index=False)
-        long_term_df.to_excel(writer, sheet_name="장기취약지역", index=False)
-        current_raw_df.to_excel(writer, sheet_name="기준월원본", index=False)
-    buffer.seek(0)
-    return buffer.getvalue()
 
 
 try:
@@ -697,46 +680,3 @@ with index_tab:
         ]
     ].rename(columns={"region_name": "지역명"}).sort_values("장기취약점수", ascending=False)
     render_centered_table(long_view.head(10))
-
-st.divider()
-
-st.markdown("## 6. 발간용 다운로드")
-export_summary = pd.DataFrame(
-    [
-        {"항목": "기준월", "값": selected_month},
-        {"항목": "주의 지역 수", "값": kpi_caution_regions},
-        {"항목": "전월 대비 악화 지역", "값": kpi_worsened_regions},
-        {"항목": "3개월 연속 비정상", "값": kpi_persistent_regions},
-        {"항목": "신규 주의 지역", "값": kpi_new_caution},
-    ]
-)
-priority_export = priority[
-    [
-        "권역",
-        "region_name",
-        "우선순위점수",
-        "현재위험점수",
-        "변화점수",
-        "연속비정상지표수",
-        "장기취약점수",
-        "장기취약정규점수",
-        "추세",
-    ]
-].rename(columns={"region_name": "지역명"})
-long_export = priority[
-    ["권역", "region_name", "장기취약점수", "장기취약정규점수", "추세변화", "추세", "현재위험점수"]
-].rename(columns={"region_name": "지역명"}).sort_values("장기취약점수", ascending=False)
-
-excel_bytes = build_export_excel(export_summary, priority_export, long_export, current)
-st.download_button(
-    "월간 발간용 Excel 다운로드",
-    data=excel_bytes,
-    file_name=f"monthly_brief_{selected_month}.xlsx",
-    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-)
-st.download_button(
-    "우선관리 지역 CSV 다운로드",
-    data=priority_export.to_csv(index=False).encode("utf-8-sig"),
-    file_name=f"priority_regions_{selected_month}.csv",
-    mime="text/csv",
-)
