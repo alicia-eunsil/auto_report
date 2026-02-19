@@ -580,8 +580,13 @@ with status_tab:
         .groupby(["indicator", "current_signal"])
         .size()
         .unstack(fill_value=0)
+        .rename_axis(None, axis=1)
         .reset_index()
     )
+    for col in ["정상", "관심", "주의"]:
+        if col not in heat.columns:
+            heat[col] = 0
+    heat = heat.rename(columns={"indicator": "지표"})[["지표", "정상", "관심", "주의"]]
     render_centered_table(heat)
 
     st.divider()
