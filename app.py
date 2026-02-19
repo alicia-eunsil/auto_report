@@ -668,15 +668,30 @@ with index_tab:
         """,
         unsafe_allow_html=True,
     )
-    long_view = priority[
-        [
-            "권역",
-            "region_name",
-            "장기취약점수",
-            "장기취약정규점수",
-            "추세변화",
-            "추세",
-            "현재위험점수",
-        ]
-    ].rename(columns={"region_name": "지역명"}).sort_values("장기취약점수", ascending=False)
-    render_centered_table(long_view.head(10))
+    long_cols = [
+        "region_name",
+        "장기취약점수",
+        "장기취약정규점수",
+        "추세변화",
+        "추세",
+        "현재위험점수",
+    ]
+    l1, l2 = st.columns(2)
+    with l1:
+        st.markdown("### 시도 Top 10")
+        long_province = (
+            priority[priority["region_level"] == "province"][long_cols]
+            .rename(columns={"region_name": "지역명"})
+            .sort_values("장기취약점수", ascending=False)
+            .head(10)
+        )
+        render_centered_table(long_province)
+    with l2:
+        st.markdown("### 경기 시군 Top 10")
+        long_city = (
+            priority[priority["region_level"] == "gyeonggi_city"][long_cols]
+            .rename(columns={"region_name": "지역명"})
+            .sort_values("장기취약점수", ascending=False)
+            .head(10)
+        )
+        render_centered_table(long_city)
