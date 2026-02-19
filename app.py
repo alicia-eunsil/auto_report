@@ -526,7 +526,12 @@ def render_region_month_heatmap(
         .mark_rect()
         .encode(
             x=alt.X("snapshot_month:O", sort=month_order, title="월"),
-            y=alt.Y("region_name:N", sort=region_order, title="지역"),
+            y=alt.Y(
+                "region_name:N",
+                sort=region_order,
+                title="지역",
+                axis=alt.Axis(labelOverlap=False, labelLimit=220),
+            ),
             color=alt.Color("월위험점수:Q", title="월별 위험점수", scale=alt.Scale(scheme="yelloworangered", domainMin=0)),
             tooltip=["snapshot_month:N", "region_level:N", "region_name:N", "월위험점수:Q"],
         )
