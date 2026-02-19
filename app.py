@@ -3,6 +3,7 @@ from __future__ import annotations
 from io import BytesIO
 from pathlib import Path
 
+import altair as alt
 import pandas as pd
 import streamlit as st
 
@@ -477,6 +478,45 @@ def render_centered_table(df: pd.DataFrame) -> None:
     st.markdown(df.to_html(index=False, classes="report-table"), unsafe_allow_html=True)
 
 
+def render_worse_monthly_line_chart(wide_df: pd.DataFrame) -> None:
+    if wide_df.empty:
+        st.info("월간 악화건수 그래프를 표시할 데이터가 없습니다.")
+        return
+
+    long_df = (
+        wide_df.reset_index()
+        .melt(id_vars="snapshot_month", var_name="지표", value_name="악화건수")
+        .sort_values(["snapshot_month", "지표"])
+    )
+    if long_df.empty:
+        st.info("월간 악화건수 그래프를 표시할 데이터가 없습니다.")
+        return
+
+    line = (
+        alt.Chart(long_df)
+        .mark_line(strokeWidth=2)
+        .encode(
+            x=alt.X("snapshot_month:O", title="월"),
+            y=alt.Y("악화건수:Q", title="악화건수", scale=alt.Scale(domainMin=0)),
+            color=alt.Color("지표:N", legend=alt.Legend(title="지표")),
+            tooltip=["snapshot_month:N", "지표:N", "악화건수:Q"],
+        )
+    )
+    # 점은 xOffset으로 살짝 분리해, 단일 월/동일 값에서도 지표별 점이 겹치지 않게 표시.
+    point = (
+        alt.Chart(long_df)
+        .mark_point(size=95, filled=True)
+        .encode(
+            x=alt.X("snapshot_month:O", title="월"),
+            xOffset=alt.XOffset("지표:N"),
+            y=alt.Y("악화건수:Q", title="악화건수", scale=alt.Scale(domainMin=0)),
+            color=alt.Color("지표:N", legend=alt.Legend(title="지표")),
+            tooltip=["snapshot_month:N", "지표:N", "악화건수:Q"],
+        )
+    )
+    st.altair_chart((line + point).properties(height=300), use_container_width=True)
+
+
 def indicator_count_view_gyeonggi(current_src: pd.DataFrame, prev_src: pd.DataFrame) -> pd.DataFrame:
     gg_cur = pd.concat(
         [
@@ -513,10 +553,7 @@ with status_tab:
     st.markdown("## 2. 확산/개선 흐름")
     st.markdown("### 지표별 악화/개선")
     st.markdown("#### 지표별 월간 악화건수")
-    if indicator_worse_monthly.empty:
-        st.info("월간 악화건수 그래프를 표시할 데이터가 없습니다.")
-    else:
-        st.line_chart(indicator_worse_monthly)
+    render_worse_monthly_line_chart(indicator_worse_monthly)
 
     if indicator_flow.empty:
         st.info("신호 비교 데이터(prev_2m/prev_1m/current)가 없어 변화 분석이 불가능합니다.")
