@@ -195,6 +195,77 @@ async def wait_for_visible_locator(
     raise RuntimeError(f"Timed out waiting for visible {label}. selector={selector}")
 
 
+async def wait_for_attached_locator(
+    scope: Page | FrameLocator,
+    selector: str,
+    *,
+    timeout: int = 15000,
+    label: str,
+) -> Locator:
+    deadline = time.monotonic() + (timeout / 1000)
+    while time.monotonic() < deadline:
+        for loc in _scope_locator_candidates(scope, selector):
+            try:
+                if await loc.count() > 0:
+                    return loc
+            except Exception:
+                continue
+        await asyncio.sleep(0.2)
+    raise RuntimeError(f"Timed out waiting for attached {label}. selector={selector}")
+
+
+async def fill_selector_resilient(
+    scope: Page | FrameLocator,
+    selector: str,
+    value: str,
+    *,
+    timeout: int = 20000,
+    label: str,
+) -> None:
+    try:
+        visible = await wait_for_visible_locator(scope, selector, timeout=timeout, label=label)
+        await visible.fill(value, timeout=5000)
+        return
+    except Exception:
+        pass
+
+    attached = await wait_for_attached_locator(scope, selector, timeout=timeout, label=label)
+    try:
+        await attached.fill(value, timeout=5000, force=True)
+        return
+    except Exception:
+        pass
+
+    await attached.evaluate(
+        """(el, v) => {
+          if (!el) return;
+          if ('value' in el) el.value = v;
+          if (typeof el.focus === 'function') el.focus();
+          el.dispatchEvent(new Event('input', { bubbles: true }));
+          el.dispatchEvent(new Event('change', { bubbles: true }));
+        }""",
+        value,
+    )
+
+
+async def click_selector_resilient(
+    scope: Page | FrameLocator,
+    selector: str,
+    *,
+    timeout: int = 20000,
+    label: str,
+) -> None:
+    try:
+        visible = await wait_for_visible_locator(scope, selector, timeout=timeout, label=label)
+        await click_resilient(visible, timeout=timeout)
+        return
+    except Exception:
+        pass
+
+    attached = await wait_for_attached_locator(scope, selector, timeout=timeout, label=label)
+    await click_resilient(attached, timeout=timeout)
+
+
 async def has_any_selector(page: Page, candidates: list[str]) -> bool:
     for sel in candidates:
         for loc in _locator_candidates(page, sel):
@@ -321,29 +392,26 @@ async def login(page: Page, selectors: dict[str, Any], user: str, password: str)
 
     login_scope = await resolve_login_scope(page, selectors)
 
-    user_input = await wait_for_visible_locator(
+    await fill_selector_resilient(
         login_scope,
         selectors["login_user_input"],
-        timeout=15000,
+        user,
+        timeout=25000,
         label="login user input",
     )
-    await user_input.fill(user, timeout=5000)
-
-    password_input = await wait_for_visible_locator(
+    await fill_selector_resilient(
         login_scope,
         selectors["login_password_input"],
-        timeout=15000,
+        password,
+        timeout=25000,
         label="login password input",
     )
-    await password_input.fill(password, timeout=5000)
-
-    submit_button = await wait_for_visible_locator(
+    await click_selector_resilient(
         login_scope,
         selectors["login_submit_button"],
-        timeout=15000,
+        timeout=25000,
         label="login submit button",
     )
-    await click_resilient(submit_button, timeout=15000)
 
     # Some environments show a custom confirmation modal instead of JS alert.
     popup_confirm_selector = selectors.get("login_popup_confirm_button")
