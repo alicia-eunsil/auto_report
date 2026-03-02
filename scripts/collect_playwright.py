@@ -17,6 +17,7 @@ import csv
 import json
 import os
 import re
+import time
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -167,6 +168,33 @@ def _locator_candidates(page: Page, selector: str) -> list[Locator]:
     return locators
 
 
+def _scope_locator_candidates(scope: Page | FrameLocator, selector: str) -> list[Locator]:
+    if isinstance(scope, Page):
+        return _locator_candidates(scope, selector)
+    return [scope.locator(selector).first]
+
+
+async def wait_for_visible_locator(
+    scope: Page | FrameLocator,
+    selector: str,
+    *,
+    timeout: int = 15000,
+    label: str,
+) -> Locator:
+    deadline = time.monotonic() + (timeout / 1000)
+    while time.monotonic() < deadline:
+        for loc in _scope_locator_candidates(scope, selector):
+            try:
+                if await loc.count() == 0:
+                    continue
+                if await loc.is_visible():
+                    return loc
+            except Exception:
+                continue
+        await asyncio.sleep(0.2)
+    raise RuntimeError(f"Timed out waiting for visible {label}. selector={selector}")
+
+
 async def has_any_selector(page: Page, candidates: list[str]) -> bool:
     for sel in candidates:
         for loc in _locator_candidates(page, sel):
@@ -280,20 +308,42 @@ async def click_exact_text_any_frame(page: Page, text: str) -> str | None:
     return None
 
 
-async def login(page: Page, selectors: dict[str, Any], user: str, password: str) -> None:
+async def login(page: Page, selectors: dict[str, Any], user: str, password: str) -> Page:
     async def accept_dialog(dialog: Dialog) -> None:
         await dialog.accept()
 
     await page.goto(BASE_URL, wait_until="domcontentloaded")
     page.on("dialog", accept_dialog)
 
+    before_page_count = len(page.context.pages)
     await click_resilient(page.locator(selectors["observer_login_button"]).first, timeout=15000)
+    page = await switch_to_new_page_if_opened(page, before_page_count)
 
     login_scope = await resolve_login_scope(page, selectors)
 
-    await login_scope.locator(selectors["login_user_input"]).fill(user, timeout=15000)
-    await login_scope.locator(selectors["login_password_input"]).fill(password, timeout=15000)
-    await click_resilient(login_scope.locator(selectors["login_submit_button"]), timeout=15000)
+    user_input = await wait_for_visible_locator(
+        login_scope,
+        selectors["login_user_input"],
+        timeout=15000,
+        label="login user input",
+    )
+    await user_input.fill(user, timeout=5000)
+
+    password_input = await wait_for_visible_locator(
+        login_scope,
+        selectors["login_password_input"],
+        timeout=15000,
+        label="login password input",
+    )
+    await password_input.fill(password, timeout=5000)
+
+    submit_button = await wait_for_visible_locator(
+        login_scope,
+        selectors["login_submit_button"],
+        timeout=15000,
+        label="login submit button",
+    )
+    await click_resilient(submit_button, timeout=15000)
 
     # Some environments show a custom confirmation modal instead of JS alert.
     popup_confirm_selector = selectors.get("login_popup_confirm_button")
@@ -311,6 +361,7 @@ async def login(page: Page, selectors: dict[str, Any], user: str, password: str)
         await page.locator(selectors["login_success_anchor"]).first.wait_for(timeout=20000)
     finally:
         page.remove_listener("dialog", accept_dialog)
+    return page
 
 
 async def region_names_from_page(page: Page, selectors: dict[str, Any], level_key: str) -> list[str]:
@@ -862,7 +913,7 @@ async def run() -> None:
         browser = await p.chromium.launch(headless=True)
         page = await browser.new_page(viewport={"width": 1920, "height": 1080})
         try:
-            await login(page, selectors, user, password)
+            page = await login(page, selectors, user, password)
             rows = await collect_rows(page, selectors)
             output = save_rows(rows)
             print(f"Saved snapshot: {output} rows={len(rows)}")
