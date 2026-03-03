@@ -476,18 +476,19 @@ def save_rows(rows: list[dict[str, str]]) -> Path:
     return output
 
 
-def guard_snapshot_month(snapshot_month: str) -> None:
+def guard_snapshot_month(snapshot_month: str) -> bool:
     existing = sorted(DATA_DIR.glob("*.csv"))
     if not existing:
-        return
+        return True
 
     latest_existing = existing[-1].stem
     if snapshot_month < latest_existing:
-        raise RuntimeError(
-            "Collected snapshot month is older than existing latest snapshot. "
-            f"collected={snapshot_month}, existing_latest={latest_existing}. "
-            "Source data may not be updated yet."
+        print(
+            "INFO: skip saving snapshot because source month is older than existing latest. "
+            f"collected={snapshot_month}, existing_latest={latest_existing}"
         )
+        return False
+    return True
 
 
 def collect_rows(session: requests.Session, yyyymm: str, ctx: ExtractionContext) -> list[dict[str, str]]:
@@ -523,7 +524,8 @@ def run() -> None:
     rows = sort_rows(rows)
 
     ensure_quality(rows, expected_regions, allow_partial=allow_partial)
-    guard_snapshot_month(ctx.snapshot_month)
+    if not guard_snapshot_month(ctx.snapshot_month):
+        return
     output = save_rows(rows)
     print(f"Saved snapshot: {output} rows={len(rows)}")
 
