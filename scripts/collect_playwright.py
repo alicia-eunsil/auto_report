@@ -357,6 +357,20 @@ async def has_any_selector(page: Page, candidates: list[str]) -> bool:
     return False
 
 
+async def wait_for_any_selector(
+    page: Page,
+    candidates: list[str],
+    *,
+    attempts: int = 20,
+    sleep_ms: int = 1000,
+) -> bool:
+    for _ in range(attempts):
+        if await has_any_selector(page, candidates):
+            return True
+        await page.wait_for_timeout(sleep_ms)
+    return False
+
+
 async def switch_to_new_page_if_opened(page: Page, previous_page_count: int) -> Page:
     pages = page.context.pages
     if len(pages) <= previous_page_count:
@@ -950,13 +964,6 @@ def validate_completeness(rows: list[dict[str, str]]) -> None:
 
 
 async def collect_rows(page: Page, selectors: dict[str, Any]) -> list[dict[str, str]]:
-    await page.goto(RISK_URL, wait_until="domcontentloaded")
-    try:
-        await page.wait_for_load_state("networkidle", timeout=8000)
-    except Exception:
-        pass
-    await page.wait_for_timeout(1200)
-
     employment_candidates = selector_candidates(
         selectors,
         "employment_tab_button",
@@ -970,17 +977,72 @@ async def collect_rows(page: Page, selectors: dict[str, Any]) -> list[dict[str, 
         ],
     )
 
-    found_employment = False
-    for _ in range(20):
-        if await has_any_selector(page, employment_candidates):
-            found_employment = True
-            break
-        await page.wait_for_timeout(1000)
+    async def open_risk_page(target_page: Page) -> Page:
+        await target_page.goto(RISK_URL, wait_until="domcontentloaded")
+        try:
+            await target_page.wait_for_load_state("networkidle", timeout=8000)
+        except Exception:
+            pass
+        await target_page.wait_for_timeout(1200)
+        return target_page
+
+    # In many sessions, login already lands on the risk dashboard.
+    found_employment = await wait_for_any_selector(page, employment_candidates, attempts=6, sleep_ms=500)
+    if not found_employment:
+        page = await open_risk_page(page)
+        found_employment = await wait_for_any_selector(page, employment_candidates, attempts=20, sleep_ms=1000)
+
+    # Some sessions are redirected to /forecast/forbidden on direct deep-link.
+    if not found_employment and "forbidden" in page.url.lower():
+        await page.goto(BASE_URL, wait_until="domcontentloaded")
+        try:
+            await page.wait_for_load_state("networkidle", timeout=8000)
+        except Exception:
+            pass
+        await page.wait_for_timeout(1200)
+
+        menu_candidates = selector_candidates(
+            selectors,
+            "early_warning_service_menu_button",
+            [
+                "a[href*='/forecast/risk']",
+                "a[href*='/forecast']",
+                "button:has-text('조기경보')",
+                "a:has-text('조기경보')",
+                "li:has-text('조기경보')",
+            ],
+        )
+
+        before_page_count = len(page.context.pages)
+        try:
+            await click_first_available(
+                page,
+                menu_candidates,
+                timeout=20000,
+                label="early warning service menu",
+            )
+            page = await switch_to_new_page_if_opened(page, before_page_count)
+            try:
+                await page.wait_for_load_state("networkidle", timeout=8000)
+            except Exception:
+                pass
+            await page.wait_for_timeout(1200)
+        except Exception:
+            # Continue with direct retry below.
+            pass
+
+        found_employment = await wait_for_any_selector(page, employment_candidates, attempts=10, sleep_ms=1000)
+        if not found_employment:
+            page = await open_risk_page(page)
+            found_employment = await wait_for_any_selector(
+                page, employment_candidates, attempts=10, sleep_ms=1000
+            )
 
     if not found_employment:
         raise RuntimeError(
             f"No element found for employment tab after loading risk page. "
-            f"url={page.url} candidates={employment_candidates}"
+            f"url={page.url} candidates={employment_candidates} "
+            "Possible causes: account lacks forecast/risk permission, or menu selector is outdated."
         )
 
     await click_first_available(page, employment_candidates, timeout=20000, label="employment tab")
@@ -1022,8 +1084,6 @@ async def collect_rows(page: Page, selectors: dict[str, Any]) -> list[dict[str, 
 
     validate_completeness(all_rows)
     return all_rows
-
-
 def save_rows(rows: list[dict[str, str]]) -> Path:
     if not rows:
         raise RuntimeError("No rows collected")
