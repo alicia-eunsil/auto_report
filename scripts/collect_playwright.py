@@ -557,9 +557,41 @@ async def region_names_from_page(page: Page, selectors: dict[str, Any], level_ke
 
 async def click_region_level(page: Page, selectors: dict[str, Any], level_key: str) -> None:
     level_selector = selectors.get("region_level_buttons", {}).get(level_key)
-    if not level_selector:
+    level_labels = {
+        "national": "\uc804\uad6d",
+        "province": "\uc804\uad6d",
+        "gyeonggi_city": "\uacbd\uae30\ub3c4",
+    }
+    label = level_labels.get(level_key, "")
+
+    candidates: list[str] = []
+    if isinstance(level_selector, str) and level_selector.strip():
+        candidates.append(level_selector.strip())
+    elif isinstance(level_selector, list):
+        candidates.extend([str(v).strip() for v in level_selector if str(v).strip()])
+
+    defaults: list[str] = []
+    if label:
+        defaults = [
+            f"button[role='tab']:has-text('{label}')",
+            f"button:has-text('{label}')",
+            f"a:has-text('{label}')",
+            f"li:has-text('{label}')",
+            f"text={label}",
+        ]
+    for sel in defaults:
+        if sel not in candidates:
+            candidates.append(sel)
+
+    if not candidates:
         raise ConfigError(f"Missing selector: region_level_buttons.{level_key}")
-    await click_resilient(page.locator(level_selector).first, timeout=15000)
+
+    await click_first_available(
+        page,
+        candidates,
+        timeout=15000,
+        label=f"region level:{level_key}",
+    )
     await page.wait_for_timeout(400)
 
 
