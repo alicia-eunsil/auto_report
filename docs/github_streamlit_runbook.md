@@ -1,17 +1,17 @@
-# GitHub + Streamlit Cloud 실제 실행 가이드
+﻿# GitHub + Streamlit Cloud ?ㅼ젣 ?ㅽ뻾 媛?대뱶
 
-요청하신 "실제로 돌려보기" 기준으로, **파일을 GitHub에 올리는 것부터** 최소 단계로 정리했습니다.
+?붿껌?섏떊 "?ㅼ젣濡??뚮젮蹂닿린" 湲곗??쇰줈, **?뚯씪??GitHub???щ━??寃껊???* 理쒖냼 ?④퀎濡??뺣━?덉뒿?덈떎.
 
-## 0) 준비물
-- GitHub 계정
-- Streamlit Cloud 계정(같은 GitHub 계정으로 로그인 권장)
-- `stats.gjf.or.kr` 관계자 ID/PW
+## 0) 以鍮꾨Ъ
+- GitHub 怨꾩젙
+- Streamlit Cloud 怨꾩젙(媛숈? GitHub 怨꾩젙?쇰줈 濡쒓렇??沅뚯옣)
+- `stats.gjf.or.kr` 愿怨꾩옄 ID/PW
 
 ---
 
-## 1) "파일이 저장 안 될 때" 먼저 확인
+## 1) "?뚯씪??????????? 癒쇱? ?뺤씤
 
-프로젝트 폴더에서 아래를 먼저 실행하세요.
+?꾨줈?앺듃 ?대뜑?먯꽌 ?꾨옒瑜?癒쇱? ?ㅽ뻾?섏꽭??
 
 ```bash
 git status
@@ -19,198 +19,199 @@ git branch --show-current
 git remote -v
 ```
 
-- `git status`에 변경 파일이 보이면: 아직 커밋 전 상태입니다.
-- `git remote -v`가 비어 있으면: GitHub 원격 저장소 연결이 안 된 상태입니다.
+- `git status`??蹂寃??뚯씪??蹂댁씠硫? ?꾩쭅 而ㅻ컠 ???곹깭?낅땲??
+- `git remote -v`媛 鍮꾩뼱 ?덉쑝硫? GitHub ?먭꺽 ??μ냼 ?곌껐???????곹깭?낅땲??
 
 ---
 
-## 2) GitHub 저장소에 코드 올리기 (CLI 방법)
+## 2) GitHub ??μ냼??肄붾뱶 ?щ━湲?(CLI 諛⑸쾿)
 
-### 2-1. 원격 저장소 연결
+### 2-1. ?먭꺽 ??μ냼 ?곌껐
 
 ```bash
 git remote add origin <YOUR_GITHUB_REPO_URL>
 ```
 
-이미 origin이 있으면 URL만 교체:
+?대? origin???덉쑝硫?URL留?援먯껜:
 
 ```bash
 git remote set-url origin <YOUR_GITHUB_REPO_URL>
 ```
 
-### 2-2. 파일 저장(커밋)
+### 2-2. ?뚯씪 ???而ㅻ컠)
 
 ```bash
 git add .
 git commit -m "chore: save project files"
 ```
 
-### 2-3. GitHub로 업로드(push)
+### 2-3. GitHub濡??낅줈??push)
 
-현재 브랜치 확인:
+?꾩옱 釉뚮옖移??뺤씤:
 
 ```bash
 git branch --show-current
 ```
 
-예: 브랜치가 `work`면
+?? 釉뚮옖移섍? `work`硫?
 
 ```bash
 git push -u origin work
 ```
 
-예: 브랜치가 `main`이면
+?? 釉뚮옖移섍? `main`?대㈃
 
 ```bash
 git push -u origin main
 ```
 
-> push 후 GitHub 웹에서 파일 목록이 보이면 정상입니다.
+> push ??GitHub ?뱀뿉???뚯씪 紐⑸줉??蹂댁씠硫??뺤긽?낅땲??
 
 ---
 
-## 3) CLI가 어렵다면: GitHub 웹 업로드 방법
+## 3) CLI媛 ?대졄?ㅻ㈃: GitHub ???낅줈??諛⑸쾿
 
-1. GitHub에서 새 저장소 생성
-2. 저장소 페이지에서 **Add file → Upload files**
-3. 프로젝트 파일 드래그&드롭
-4. Commit message 입력 후 **Commit changes**
+1. GitHub?먯꽌 ????μ냼 ?앹꽦
+2. ??μ냼 ?섏씠吏?먯꽌 **Add file ??Upload files**
+3. ?꾨줈?앺듃 ?뚯씪 ?쒕옒洹??쒕∼
+4. Commit message ?낅젰 ??**Commit changes**
 
-> 빠르게 확인할 때는 웹 업로드가 가장 단순합니다.
-
----
-
-## 4) GitHub Secrets 설정 (중요)
-
-GitHub 저장소 → **Settings → Secrets and variables → Actions → New repository secret**
-
-아래 2개를 추가:
-- `GJF_USER` = 관계자 ID
-- `GJF_PASSWORD` = 관계자 비밀번호
+> 鍮좊Ⅴ寃??뺤씤???뚮뒗 ???낅줈?쒓? 媛???⑥닚?⑸땲??
 
 ---
 
-## 5) Streamlit Cloud 배포
+## 4) GitHub Secrets ?ㅼ젙 (以묒슂)
 
-1. Streamlit Cloud 접속 → **New app**
-2. 방금 push한 GitHub repo 선택
-3. Branch: 배포할 브랜치(`work` 또는 `main`)
+GitHub ??μ냼 ??**Settings ??Secrets and variables ??Actions ??New repository secret**
+
+?꾨옒 2媛쒕? 異붽?:
+- `GJF_USER` = 愿怨꾩옄 ID
+- `GJF_PASSWORD` = 愿怨꾩옄 鍮꾨?踰덊샇
+
+---
+
+## 5) Streamlit Cloud 諛고룷
+
+1. Streamlit Cloud ?묒냽 ??**New app**
+2. 諛⑷툑 push??GitHub repo ?좏깮
+3. Branch: 諛고룷??釉뚮옖移?`work` ?먮뒗 `main`)
 4. Main file path: `app.py`
 5. Deploy
 
-배포 후 앱이 열리면 `data/snapshots/*.csv` 기준으로 화면이 표시됩니다.
+諛고룷 ???깆씠 ?대━硫?`data/snapshots/*.csv` 湲곗??쇰줈 ?붾㈃???쒖떆?⑸땲??
 
 ---
 
-## 6) GitHub Actions 수집 실행(수동 테스트)
+## 6) GitHub Actions ?섏쭛 ?ㅽ뻾(?섎룞 ?뚯뒪??
 
-자동은 월말 1회(내부 게이트)지만, 지금 당장 테스트하려면 수동 실행:
+?먮룞? ?붾쭚 1???대? 寃뚯씠??吏留? 吏湲??뱀옣 ?뚯뒪?명븯?ㅻ㈃ ?섎룞 ?ㅽ뻾:
 
-1. GitHub 저장소 → **Actions**
-2. `Monthly Collect` 워크플로 선택
-3. **Run workflow** 클릭
+1. GitHub ??μ냼 ??**Actions**
+2. `Monthly Collect` ?뚰겕?뚮줈 ?좏깮
+3. **Run workflow** ?대┃
 
-워크플로는 Playwright 브라우저를 설치하고,
-`COLLECTOR_SCRIPT=scripts/collect_playwright.py`로 수집을 시도합니다.
+?뚰겕?뚮줈??API 釉뚮씪?곗?瑜??ㅼ튂?섍퀬,
+`COLLECTOR_SCRIPT=scripts/collect_api.py`濡??섏쭛???쒕룄?⑸땲??
 
 ---
 
-## 7) 실패했을 때 확인 순서
+## 7) ?ㅽ뙣?덉쓣 ???뺤씤 ?쒖꽌
 
-### A. Actions 로그 확인
+### A. Actions 濡쒓렇 ?뺤씤
 - `Run collector on month-end`
 - `Validate latest snapshot`
 
-### B. 셀렉터 문제 가능성
-사이트 DOM이 다르면 `config/selectors.example.json` 값을 실제 값으로 바꿔
-`config/selectors.json`을 만들어야 합니다.
+### B. ??됲꽣 臾몄젣 媛?μ꽦
+?ъ씠??DOM???ㅻⅤ硫?`config/selectors.example.json` 媛믪쓣 ?ㅼ젣 媛믪쑝濡?諛붽퓭
+`config/selectors.json`??留뚮뱾?댁빞 ?⑸땲??
 
-예시:
+?덉떆:
 ```bash
 cp config/selectors.example.json config/selectors.json
-# 이후 selectors.json 값을 실제 DOM으로 수정
+# ?댄썑 selectors.json 媛믪쓣 ?ㅼ젣 DOM?쇰줈 ?섏젙
 ```
 
-### C. 로그인 성공 판정 요소
-`login_success_anchor`가 실제 로그인 후 보이는 요소인지 확인하세요.
+### C. 濡쒓렇???깃났 ?먯젙 ?붿냼
+`login_success_anchor`媛 ?ㅼ젣 濡쒓렇????蹂댁씠???붿냼?몄? ?뺤씤?섏꽭??
 
 ---
 
-## 8) "진짜 수집되었는지" 확인 포인트
+## 8) "吏꾩쭨 ?섏쭛?섏뿀?붿?" ?뺤씤 ?ъ씤??
 
-1. GitHub 저장소의 `data/snapshots/YYYY-MM.csv` 파일 생성/갱신 여부
-2. Streamlit 앱에서 최신 월 데이터가 테이블로 노출되는지
-3. Actions 로그에서 `Validate latest snapshot` 성공 여부
-
----
-
-## 9) 가장 빠른 실전 점검 루트 (권장)
-
-1. GitHub Secrets 2개 설정
-2. `config/selectors.json` 실제 DOM에 맞게 수정 후 push
-3. Actions에서 `Monthly Collect` 수동 실행
-4. `data/snapshots` 갱신 확인
-5. Streamlit 앱 새로고침
-
-이 5단계를 통과하면, 월말 자동수집 + 보고서 조회 흐름이 완성됩니다.
+1. GitHub ??μ냼??`data/snapshots/YYYY-MM.csv` ?뚯씪 ?앹꽦/媛깆떊 ?щ?
+2. Streamlit ?깆뿉??理쒖떊 ???곗씠?곌? ?뚯씠釉붾줈 ?몄텧?섎뒗吏
+3. Actions 濡쒓렇?먯꽌 `Validate latest snapshot` ?깃났 ?щ?
 
 ---
 
-## 10) 운영 보완안: 월말 + 익월초 재시도 정책
+## 9) 媛??鍮좊Ⅸ ?ㅼ쟾 ?먭? 猷⑦듃 (沅뚯옣)
 
-현재 워크플로는 "월말일에 수집 1회 시도" 구조이므로, 아래 운영 정책을 같이 적용하는 것을 권장합니다.
+1. GitHub Secrets 2媛??ㅼ젙
+2. `config/selectors.json` ?ㅼ젣 DOM??留욊쾶 ?섏젙 ??push
+3. Actions?먯꽌 `Monthly Collect` ?섎룞 ?ㅽ뻾
+4. `data/snapshots` 媛깆떊 ?뺤씤
+5. Streamlit ???덈줈怨좎묠
 
-### 10-1. 기본 실행 시각
-- 월말 본수집: 매월 말일 22:00(KST)
+??5?④퀎瑜??듦낵?섎㈃, ?붾쭚 ?먮룞?섏쭛 + 蹂닿퀬??議고쉶 ?먮쫫???꾩꽦?⑸땲??
 
-### 10-2. 재시도 창 (권장)
-- 익월 1일 08:00(KST)
-- 익월 1일 14:00(KST)
-- 익월 1일 20:00(KST)
+---
 
-각 재시도는 GitHub Actions `Run workflow`에서 아래로 실행:
+## 10) ?댁쁺 蹂댁셿?? ?붾쭚 + ?듭썡珥??ъ떆???뺤콉
+
+?꾩옱 ?뚰겕?뚮줈??"?붾쭚?쇱뿉 ?섏쭛 1???쒕룄" 援ъ“?대?濡? ?꾨옒 ?댁쁺 ?뺤콉??媛숈씠 ?곸슜?섎뒗 寃껋쓣 沅뚯옣?⑸땲??
+
+### 10-1. 湲곕낯 ?ㅽ뻾 ?쒓컖
+- ?붾쭚 蹂몄닔吏? 留ㅼ썡 留먯씪 22:00(KST)
+
+### 10-2. ?ъ떆??李?(沅뚯옣)
+- ?듭썡 1??08:00(KST)
+- ?듭썡 1??14:00(KST)
+- ?듭썡 1??20:00(KST)
+
+媛??ъ떆?꾨뒗 GitHub Actions `Run workflow`?먯꽌 ?꾨옒濡??ㅽ뻾:
 - `Monthly Collect`
 - `force_month_end=true`
 
-### 10-3. 재시도 수행 조건
-아래 중 하나라도 해당되면 재시도:
-1. `data/snapshots/YYYY-MM.csv` 파일 미생성
-2. `validate_snapshot.py` 실패
-3. `reports/YYYY-MM/report_YYYY-MM.xlsx` 미생성
+### 10-3. ?ъ떆???섑뻾 議곌굔
+?꾨옒 以??섎굹?쇰룄 ?대떦?섎㈃ ?ъ떆??
+1. `data/snapshots/YYYY-MM.csv` ?뚯씪 誘몄깮??
+2. `validate_snapshot.py` ?ㅽ뙣
+3. `reports/YYYY-MM/report_YYYY-MM.xlsx` 誘몄깮??
 
-### 10-4. 중복 실행 방지
-아래 모두 충족 시 추가 재시도 중단:
-1. 최신 월 스냅샷 생성 완료
-2. 검증 통과
-3. 마스터/리포트 파일 생성 완료
+### 10-4. 以묐났 ?ㅽ뻾 諛⑹?
+?꾨옒 紐⑤몢 異⑹” ??異붽? ?ъ떆??以묐떒:
+1. 理쒖떊 ???ㅻ깄???앹꽦 ?꾨즺
+2. 寃利??듦낵
+3. 留덉뒪??由ы룷???뚯씪 ?앹꽦 ?꾨즺
 
 ---
 
-## 11) 실패 알림 체크리스트
+## 11) ?ㅽ뙣 ?뚮┝ 泥댄겕由ъ뒪??
 
-월말/재시도 실행 후 아래 순서대로 점검하세요.
+?붾쭚/?ъ떆???ㅽ뻾 ???꾨옒 ?쒖꽌?濡??먭??섏꽭??
 
-### 11-1. 실행 상태 확인
-1. GitHub Actions에서 `Run collector on month-end` 성공 여부
-2. `collector_ran=1` 여부
+### 11-1. ?ㅽ뻾 ?곹깭 ?뺤씤
+1. GitHub Actions?먯꽌 `Run collector on month-end` ?깃났 ?щ?
+2. `collector_ran=1` ?щ?
 
-### 11-2. 수집 실패 시 즉시 확인
-1. `artifacts/collector_failure.png` 확인
-2. 로그인 요소(`observer_login_button`, `login_success_anchor`) 유효성 확인
-3. 핵심 셀렉터(`employment_tab_button`, 카드/지표 셀렉터) 유효성 확인
+### 11-2. ?섏쭛 ?ㅽ뙣 ??利됱떆 ?뺤씤
+1. `artifacts/collector_failure.png` ?뺤씤
+2. 濡쒓렇???붿냼(`observer_login_button`, `login_success_anchor`) ?좏슚???뺤씤
+3. ?듭떖 ??됲꽣(`employment_tab_button`, 移대뱶/吏????됲꽣) ?좏슚???뺤씤
 
-### 11-3. 검증 실패 시 확인
-1. region count(1/17/31) 충족 여부
-2. indicator count(6) 충족 여부
-3. signal 값(정상/관심/주의) 유효 여부
+### 11-3. 寃利??ㅽ뙣 ???뺤씤
+1. region count(1/17/31) 異⑹” ?щ?
+2. indicator count(6) 異⑹” ?щ?
+3. signal 媛??뺤긽/愿??二쇱쓽) ?좏슚 ?щ?
 
-### 11-4. 산출물 확인
+### 11-4. ?곗텧臾??뺤씤
 1. `data/snapshots/YYYY-MM.csv`
 2. `data/master/employment_master.csv`
 3. `reports/YYYY-MM/report_YYYY-MM.xlsx`
 
-### 11-5. 복구 절차
-1. `config/selectors.json` 수정
-2. `force_month_end=true`로 수동 재실행
-3. 검증/리포트 생성 성공 확인
-4. 변경 파일 push 확인
+### 11-5. 蹂듦뎄 ?덉감
+1. `config/selectors.json` ?섏젙
+2. `force_month_end=true`濡??섎룞 ?ъ떎??
+3. 寃利?由ы룷???앹꽦 ?깃났 ?뺤씤
+4. 蹂寃??뚯씪 push ?뺤씤
+

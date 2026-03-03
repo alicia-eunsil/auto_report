@@ -37,6 +37,7 @@ jobs:
           COLLECTOR_SCRIPT: scripts/collect_api.py
           FORCE_MONTH_END: ${{ github.event.inputs.force_month_end == 'true' && '1' || '' }}
           RUN_MARKER_PATH: artifacts/collector_ran.flag
+          SNAPSHOT_UPDATED_MARKER_PATH: artifacts/snapshot_updated.flag
         run: |
           bash scripts/run_if_month_end.sh
           if [[ -f artifacts/collector_ran.flag ]]; then
@@ -44,26 +45,36 @@ jobs:
           else
             echo "collector_ran=0" >> "$GITHUB_OUTPUT"
           fi
+          if [[ -f artifacts/snapshot_updated.flag ]]; then
+            echo "snapshot_updated=1" >> "$GITHUB_OUTPUT"
+          else
+            echo "snapshot_updated=0" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Skip downstream steps when collector did not run
         if: steps.collect.outputs.collector_ran != '1'
         run: |
           echo "Collector skipped (not month-end and not forced)."
 
+      - name: Skip downstream steps when snapshot did not update
+        if: steps.collect.outputs.collector_ran == '1' && steps.collect.outputs.snapshot_updated != '1'
+        run: |
+          echo "Collector ran, but source month was not newer than latest snapshot. Skip validate/report/commit."
+
       - name: Validate latest snapshot
-        if: steps.collect.outputs.collector_ran == '1'
+        if: steps.collect.outputs.collector_ran == '1' && steps.collect.outputs.snapshot_updated == '1'
         env:
           REQUIRE_FULL_COVERAGE: "1"
         run: |
           python scripts/validate_snapshot.py
 
       - name: Build cumulative outputs and monthly report
-        if: steps.collect.outputs.collector_ran == '1'
+        if: steps.collect.outputs.collector_ran == '1' && steps.collect.outputs.snapshot_updated == '1'
         run: |
           python scripts/postprocess_data.py
 
       - name: Commit snapshot/report outputs if changed
-        if: steps.collect.outputs.collector_ran == '1'
+        if: steps.collect.outputs.collector_ran == '1' && steps.collect.outputs.snapshot_updated == '1'
         run: |
           if [[ -n "$(git status --porcelain data/snapshots data/master reports)" ]]; then
             git config user.name "github-actions[bot]"

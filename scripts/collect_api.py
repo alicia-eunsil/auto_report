@@ -18,6 +18,7 @@ import requests
 
 API_BASE = os.getenv("GJF_API_BASE", "https://stats.gjf.or.kr/forecast/api").rstrip("/")
 DATA_DIR = Path("data/snapshots")
+SNAPSHOT_UPDATED_MARKER_PATH = os.getenv("SNAPSHOT_UPDATED_MARKER_PATH", "artifacts/snapshot_updated.flag")
 
 EXPECTED_LEVEL_COUNTS = {
     "national": 1,
@@ -527,6 +528,9 @@ def run() -> None:
     if not guard_snapshot_month(ctx.snapshot_month):
         return
     output = save_rows(rows)
+    marker = Path(SNAPSHOT_UPDATED_MARKER_PATH)
+    marker.parent.mkdir(parents=True, exist_ok=True)
+    marker.write_text("1\n", encoding="utf-8")
     print(f"Saved snapshot: {output} rows={len(rows)}")
 
 

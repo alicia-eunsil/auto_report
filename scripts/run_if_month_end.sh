@@ -6,9 +6,12 @@ next_day_month="$(date -d tomorrow +%m)"
 this_month="$(date +%m)"
 collector_script="${COLLECTOR_SCRIPT:-scripts/collect_stub.py}"
 run_marker="${RUN_MARKER_PATH:-artifacts/collector_ran.flag}"
+snapshot_updated_marker="${SNAPSHOT_UPDATED_MARKER_PATH:-artifacts/snapshot_updated.flag}"
 
 mkdir -p "$(dirname "${run_marker}")"
 rm -f "${run_marker}"
+mkdir -p "$(dirname "${snapshot_updated_marker}")"
+rm -f "${snapshot_updated_marker}"
 
 run_collector() {
   echo "Running collector: ${collector_script}"
