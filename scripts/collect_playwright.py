@@ -266,6 +266,89 @@ async def click_selector_resilient(
     await click_resilient(attached, timeout=timeout)
 
 
+async def wait_for_login_success(
+    page: Page,
+    selectors: dict[str, Any],
+    *,
+    timeout: int = 20000,
+) -> None:
+    logout_selector = str(selectors.get("login_success_anchor", "")).strip()
+    logout_text_selector = str(selectors.get("login_success_text_selector", "text=로그아웃")).strip()
+    user_selector = str(selectors.get("login_user_input", "")).strip()
+    password_selector = str(selectors.get("login_password_input", "")).strip()
+
+    def _candidate_selectors() -> list[str]:
+        out: list[str] = []
+        for sel in [logout_selector, user_selector, password_selector]:
+            if sel and sel not in out:
+                out.append(sel)
+        return out
+
+    targets = _candidate_selectors()
+    if not targets:
+        raise RuntimeError("Missing selectors for login success check.")
+
+    deadline = time.monotonic() + (timeout / 1000)
+    while time.monotonic() < deadline:
+        logout_attached = False
+        logout_visible = False
+        logout_text_visible = False
+        if logout_selector:
+            for loc in _locator_candidates(page, logout_selector):
+                try:
+                    if await loc.count() == 0:
+                        continue
+                    logout_attached = True
+                    if await loc.is_visible():
+                        logout_visible = True
+                        break
+                except Exception:
+                    continue
+
+        if logout_text_selector:
+            for loc in _locator_candidates(page, logout_text_selector):
+                try:
+                    if await loc.count() == 0:
+                        continue
+                    if await loc.is_visible():
+                        logout_text_visible = True
+                        break
+                except Exception:
+                    continue
+
+        login_inputs_visible = False
+        for sel in [user_selector, password_selector]:
+            if not sel:
+                continue
+            for loc in _locator_candidates(page, sel):
+                try:
+                    if await loc.count() == 0:
+                        continue
+                    if await loc.is_visible():
+                        login_inputs_visible = True
+                        break
+                except Exception:
+                    continue
+            if login_inputs_visible:
+                break
+
+        if logout_text_visible:
+            return
+        if logout_visible:
+            return
+        if logout_attached and not login_inputs_visible:
+            return
+
+        await asyncio.sleep(0.25)
+
+    raise RuntimeError(
+        "Login success check timed out. "
+        f"logout_selector={logout_selector or '<empty>'}, "
+        f"logout_text_selector={logout_text_selector or '<empty>'}, "
+        f"user_selector={user_selector or '<empty>'}"
+    )
+
+
 async def has_any_selector(page: Page, candidates: list[str]) -> bool:
     for sel in candidates:
         for loc in _locator_candidates(page, sel):
@@ -426,7 +509,7 @@ async def login(page: Page, selectors: dict[str, Any], user: str, password: str)
             pass
 
     try:
-        await page.locator(selectors["login_success_anchor"]).first.wait_for(timeout=20000)
+        await wait_for_login_success(page, selectors, timeout=25000)
     finally:
         page.remove_listener("dialog", accept_dialog)
     return page
