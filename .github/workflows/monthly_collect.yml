@@ -29,16 +29,12 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Install Playwright browser
-        run: |
-          python -m playwright install --with-deps chromium
-
       - name: Run collector on month-end
         id: collect
         env:
           GJF_USER: ${{ secrets.GJF_USER }}
           GJF_PASSWORD: ${{ secrets.GJF_PASSWORD }}
-          COLLECTOR_SCRIPT: scripts/collect_playwright.py
+          COLLECTOR_SCRIPT: scripts/collect_api.py
           FORCE_MONTH_END: ${{ github.event.inputs.force_month_end == 'true' && '1' || '' }}
           RUN_MARKER_PATH: artifacts/collector_ran.flag
         run: |
